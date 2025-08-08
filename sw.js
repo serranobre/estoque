@@ -1,4 +1,4 @@
-const CACHE_NAME = "serra-nobre-v1";
+const CACHE_NAME = "serra-nobre-v2";
 const FILES_TO_CACHE = [
   "/",
   "/index.html",

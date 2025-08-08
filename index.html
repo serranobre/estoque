@@ -9,19 +9,22 @@
   <link rel="shortcut icon" href="/favicon.ico" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <meta name="apple-mobile-web-app-title" content="Serra Nobre" />
-  <link rel="manifest" href="manifest.json" />
-  <title>PEDIDO V2.0</title>
-  <style>
+  <link rel="manifest" href="/manifest.json" />
+  <title>PEDIDO V2.1</title>
+<style>
     body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background: #f4f4f4; }
-    h1 { text-align: right; margin-bottom: 10px;
-    font-size: 30px; }
-    .logo-header { width: 480px; display: block; margin: 0 auto 10px auto; }
+    h1 { text-align: right; margin-bottom: 10px; font-size: 30px; }
+    .logo-header { width: 360px; display: block; margin: 0 auto 10px auto; }
     input, select, textarea { width: 100%; padding: 8px; margin: 5px 0; box-sizing: border-box; }
     .item { border: 1px solid #ccc; padding: 10px; background: #fff; margin-bottom: 10px; }
     .total { font-weight: bold; font-size: 1.2em; }
     button { width: 100%; padding: 10px; background: #008000; color: white; border: none; font-size: 1em; margin-top: 5px; border-radius: 6px; }
     .remove { background: #c0392b; }
     .pdf-btn { background: #005580; margin-top: 10px; }
+    .pdf-btn.salvar { background: #3d7311; } /* <-- NOVA COR PARA SALVAR PDF */
+.pdf-btn.compartilhar {
+  background: #b06912; /* azul vibrante, por exemplo */
+}
     .tipo-select { width: auto; margin-right: 10px; }
     label { font-weight: bold; }
     .field-group { margin-bottom: 12px; }
@@ -35,11 +38,11 @@
       input, select, textarea { padding: 6px; }
       .field-group { margin-bottom: 8px; }
     }
-  </style>
+</style>
 </head>
 <body>
   <img src="Serra-Nobre_3.png" alt="Logo" class="logo-header" onerror="this.style.display='none'">
-  <h1>V2.0</h1>
+  <h1>V2.1</h1>
   <div class="field-group">
     <label>Cliente:</label>
     <input type="text" id="cliente" autocomplete="off" required/>
@@ -69,7 +72,7 @@
     <option value="PIX">PIX</option>
     <option value="DINHEIRO">DINHEIRO</option>
     <option value="CARTÃO (LEVAR MAQUINA)">CARTÃO (LEVAR MAQUINA)</option>
-    <option value="OUTROS">OUTROS</option>
+    <option value="OUTROS">OUTRO</option>
   </select>
   <input type="text" id="pagamentoOutro" placeholder="Digite outra forma de pagamento" style="display:none"/>
   <hr/>
@@ -77,7 +80,8 @@
   <textarea id="obsGeral"></textarea>
   <hr/>
   <button class="pdf-btn" onclick="gerarPDF(false)">Gerar PDF</button>
-  <button class="pdf-btn" onclick="gerarPDF(true)">Salvar PDF</button>
+<button class="pdf-btn salvar" onclick="gerarPDF(true)">Salvar PDF</button>
+<button class="pdf-btn compartilhar" onclick="compartilharPDF()">Compartilhar PDF</button>
   <div id="resumo"></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script>
@@ -93,7 +97,7 @@
     document.addEventListener('DOMContentLoaded', function() {
       renderItens();
       document.getElementById('pagamento').addEventListener('change', function() {
-        if (this.value === 'Outro') {
+        if (this.value === 'OUTRO') {
           document.getElementById('pagamentoOutro').style.display = '';
         } else {
           document.getElementById('pagamentoOutro').style.display = 'none';
@@ -243,6 +247,10 @@
     return;
   }
   salvarCamposAntesRender();
+let nomeCliente = document.getElementById("cliente").value.trim();
+  let dataEntrega = document.getElementById("entrega").value;
+  let nomeArquivo = `Pedido_${nomeCliente.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')}_${dataEntrega}.pdf`;
+
   const { jsPDF } = window.jspdf;
   const margemX = 2; // Margem esquerda/direita
   const larguraCaixa = 68; // Largura útil (72mm - 2mm de cada lado)
@@ -260,8 +268,8 @@
   doc.setFontSize(7);
   doc.setFont(undefined, "bold");
   try {
-    doc.addImage(imgLogo, "PNG", 21, y, 30, 16); // centralizado
-    y += 18;
+    doc.addImage(imgLogo, "PNG", 20, y, 32, 12, '', 'FAST'); // centralizado
+    y += 14;
   } catch (e) {
     y += 2;
   }
@@ -288,17 +296,28 @@
   y += 11;
 
   // DATA/HORÁRIO
-  doc.setFont(undefined, "bold");
-  doc.setDrawColor(0);
-  doc.setLineWidth(0.2);
-  doc.rect(margemX, y, larguraCaixa / 2, 9, "S");
-  doc.rect(margemX + larguraCaixa / 2, y, larguraCaixa / 2, 9, "S");
-  doc.text("DATA ENTREGA", margemX + larguraCaixa / 4, y + 4.0, { align: "center" });
-  doc.text("HORÁRIO ENTREGA", margemX + (3 * larguraCaixa) / 4, y + 4.0, { align: "center" });
-  doc.setFont(undefined, "normal");
-  doc.text(formatarData(document.getElementById("entrega").value), margemX + larguraCaixa / 4, y + 7,5, { align: "center" });
-  doc.text(document.getElementById("horaEntrega").value, margemX + (3 * larguraCaixa) / 4, y + 7,5, { align: "center" });
-  y += 11;
+doc.setFont(undefined, "bold");
+doc.setDrawColor(0);
+doc.setLineWidth(0.2);
+
+// caixas
+doc.rect(margemX, y, larguraCaixa / 2, 10, "S");
+doc.rect(margemX + larguraCaixa / 2, y, larguraCaixa / 2, 10, "S");
+
+// títulos
+doc.setFontSize(7);
+doc.text("DATA ENTREGA", margemX + larguraCaixa / 4, y + 4, { align: "center" });
+doc.text("HORÁRIO ENTREGA", margemX + (3 * larguraCaixa) / 4, y + 4, { align: "center" });
+
+// valores com tamanho de fonte maior
+doc.setFont(undefined, "normal");
+doc.setFontSize(8); // aumentei o tamanho do valor (de 7 para 8)
+doc.text(formatarData(document.getElementById("entrega").value), margemX + larguraCaixa / 4, y + 8, { align: "center" });
+doc.text(document.getElementById("horaEntrega").value, margemX + (3 * larguraCaixa) / 4, y + 8, { align: "center" });
+
+// volta fonte ao padrão para o restante do PDF
+doc.setFontSize(7);
+y += 10;
 
   // ENTREGA/RETIRADA
   y += 2;
@@ -309,7 +328,7 @@
   doc.setFont(undefined, "bold");
   let tipoEntrega = document.querySelector('input[name="tipoEntrega"]:checked').value;
   doc.text(tipoEntrega, margemX + larguraCaixa / 2, y + 6.5, { align: "center" });
-  y += 13;
+  y += 12;
 
   // ITENS (TABELA)
   const larguraProduto = 23.5;   // Reduzida
@@ -387,9 +406,9 @@ doc.text("PRODUTO", valorX, y + 8.5, { align: "center" });
     // Observação de UN
     if (tipo === "UN") {
       doc.setFont(undefined, "italic");
-      doc.text("(*) ESTE ITEM ESTÁ EM UNIDADES! (NÃO EM KG).", margemX + 6, y + 4);
+      doc.text("(*) ESTE ITEM ESTÁ EM UNIDADES! (NÃO EM KG).", margemX + 5, y + 4);
       doc.setFont(undefined, "normal");
-      y += 2;
+      y += 4;
     }
     totalGeral += itens[i].total;
     // Separação de 2mm entre itens
@@ -420,7 +439,7 @@ doc.text("PRODUTO", valorX, y + 8.5, { align: "center" });
   doc.text("TOTAL DO PEDIDO", margemX + larguraCaixa / 2, y + 4.5, { align: "center" });
   doc.setFontSize(10);
   doc.text("R$ " + totalGeral.toFixed(2), margemX + larguraCaixa / 2, y + 9, { align: "center" });
-  y += 13;
+  y += 15;
 
   // OBSERVAÇÃO GERAL
   let obsGeral = document.getElementById("obsGeral").value;
@@ -442,9 +461,61 @@ doc.text("PRODUTO", valorX, y + 8.5, { align: "center" });
 
   // Final do PDF
   if (apenasSalvar) {
-    doc.save("pedido_serra_nobre.pdf");
+    doc.save(nomeArquivo); // Agora usa o nome personalizado!
   } else {
     window.open(doc.output('bloburl'), '_blank');
+  }
+}
+// Compartilhar PDF (Android/iOS modernos)
+async function compartilharPDF() {
+  if (!camposObrigatoriosPreenchidos()) {
+    alert("Preencha todos os campos obrigatórios: Cliente, Endereço, Data de Entrega e Horário.");
+    return;
+  }
+  salvarCamposAntesRender();
+let nomeCliente = document.getElementById("cliente").value.trim();
+  let dataEntrega = document.getElementById("entrega").value;
+  let nomeArquivo = `Pedido_${nomeCliente.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '')}_${dataEntrega}.pdf`;
+
+  const { jsPDF } = window.jspdf;
+  const margemX = 2;
+  const larguraCaixa = 68;
+  let y = 10;
+
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "mm",
+    format: [72, 297]
+  });
+
+  // Repete toda a geração do PDF (igual ao gerarPDF)
+  let imgLogo = new Image();
+  imgLogo.src = 'Serra-Nobre_3.png';
+  doc.setFontSize(7);
+  doc.setFont(undefined, "bold");
+  try {
+    doc.addImage(imgLogo, "PNG", 20, y, 32, 12, '', 'FAST');
+    y += 14;
+  } catch (e) {
+    y += 2;
+  }
+  // --- Cole aqui toda a lógica das caixas/itens/total/observação igual ao gerarPDF acima ---
+
+  // Compartilhamento nativo
+  if (navigator.canShare && window.Blob) {
+    const blob = await doc.output("blob");
+    const file = new File([blob], nomeArquivo, { type: "application/pdf" }); // Usa nome personalizado!
+    if (navigator.canShare({ files: [file] })) {
+      navigator.share({
+        files: [file],
+        title: "Pedido Serra Nobre",
+        text: "Segue pedido em PDF"
+      });
+    } else {
+      alert("Seu dispositivo não permite compartilhamento direto de arquivos PDF. Salve e envie manualmente.");
+    }
+  } else {
+    alert("Seu navegador não suporta compartilhamento direto de PDF. Salve e envie manualmente.");
   }
 }
   </script>
@@ -462,7 +533,7 @@ doc.text("PRODUTO", valorX, y + 8.5, { align: "center" });
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function() {
-      navigator.serviceWorker.register('service-worker.js')
+      navigator.serviceWorker.register('sw.js')
         .then(function(registration) {
           // Sucesso!
         }, function(err) {
