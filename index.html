@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ESTOQUE — PWA</title>
 
-  <!-- MESMOS ARQUIVOS do app de pedidos -->
+  <!-- Mantém os mesmos arquivos do app de pedidos -->
   <link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="shortcut icon" href="favicon.ico" />
@@ -41,37 +41,81 @@
 
     header{
       position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--line);
-      padding:12px 16px;display:flex;gap:8px;align-items:center;z-index:5
+      padding:12px 16px;display:flex;gap:8px;align-items:center;z-index:10;
+      overflow-x:auto; white-space:nowrap;
     }
     header h1{font-size:18px;margin:0;letter-spacing:.5px}
     header .spacer{flex:1}
-    button,select,input{font:inherit}
+    button,input,select{font:inherit}
     .btn{border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 14px;cursor:pointer}
     .btn:active{transform:scale(.98)}
     .btn.primary{background:#111827;color:#fff;border-color:#111827}
     .btn.ghost{background:transparent}
 
-    .wrap{max-width:980px;margin:20px auto;padding:0 12px}
+    /* Barra de sync */
+    .syncbar{
+      position:sticky; top:48px; z-index:9; display:none;
+      padding:8px 12px; background:#fffbeb; border-bottom:1px solid #f5e7b3; color:#7a5d00;
+      font-size:13px; display:flex; align-items:center; gap:8px
+    }
+    .syncbar.show{ display:flex }
+    .spinner{ width:12px; height:12px; border:2px solid #eab308; border-top-color:transparent; border-radius:50%; animation:spin .9s linear infinite }
+    @keyframes spin{ to{ transform:rotate(360deg) } }
+    .syncbar.error{ background:#fef2f2; border-color:#fecaca; color:#991b1b }
+
+    .wrap{max-width:980px;margin:12px auto 20px;padding:0 12px}
     .card{background:var(--card);border:1px solid var(--line);border-radius:16px;
           box-shadow:0 1px 0 rgba(15,23,42,.03);margin-bottom:16px;overflow:hidden}
 
     /* Cabeçalho da família = FAIXA INTEIRA na cor forte */
     .fam-head{
       display:flex;align-items:center;gap:10px;padding:12px 14px;
-      color:#fff;border-bottom:1px solid var(--line);cursor:pointer
+      color:#fff;border-bottom:1px solid var(--line);cursor:pointer;flex-wrap:wrap
     }
     .fam-title{font-weight:900;letter-spacing:.6px;font-size:18px}
-    .fam-meta{margin-left:auto;font-size:12px;opacity:.9;color:#fff}
+    .fam-meta{margin-left:auto;font-size:12px;opacity:.95;color:#fff;width:100%}
+
     .fam-body{padding:0 12px 10px;display:none}
     .fam-body.open{display:block}
 
-    /* Linhas de item (fonte base 16px); título da família +2 => 18px */
+    /* ====== LINHAS DE ITEM — GRID COM ÁREAS ====== */
     .row{
-      display:grid;grid-template-columns: 1.2fr auto 0.65fr 0.6fr auto auto; /* nome | chips | unidade | peso | adicionar | ações */
-      gap:8px;padding:10px 8px;border-bottom:1px dashed var(--line);align-items:center;
-      font-size:16px
+      display:grid;
+      grid-template-columns: 1.2fr auto 1fr auto auto; /* desktop */
+      grid-template-areas:
+        "name chips qty add actions"
+        "feedback feedback feedback feedback feedback"
+        "editor editor editor editor editor";
+      gap:8px;
+      padding:10px 8px;
+      border-bottom:1px dashed var(--line);
+      align-items:center;
+      font-size:16px;
     }
-    .name{font-weight:700;text-transform:uppercase}
+    .cell-name   { grid-area: name;   font-weight:700; text-transform:uppercase }
+    .cell-chips  { grid-area: chips;  display:flex; gap:8px; flex-wrap:wrap }
+    .cell-qty    { grid-area: qty;    display:flex; gap:6px; align-items:center }
+    .cell-qty input{ width:120px; padding:10px; border:1px solid var(--line); border-radius:10px }
+    .cell-qty select.unit{ width:70px; padding:10px; border:1px solid var(--line); border-radius:10px; background:#fff }
+    .cell-add    { grid-area: add; }
+    .cell-actions{ grid-area: actions; display:flex; gap:6px; justify-content:flex-end }
+    .feedback    { grid-area: feedback; font-size:12px; color:#0f172a; padding:6px 2px 10px; min-height:18px; line-height:1.25 }
+    .editor      { grid-area: editor; display:none; padding:10px; border:1px dashed var(--line); border-radius:10px; background:#fff }
+    .editor.open { display:block }
+    .editor .grid{ display:grid; grid-template-columns:1fr 1fr 1fr 1fr auto auto; gap:8px }
+    .editor input{ width:100%; padding:10px; border:1px solid var(--line); border-radius:10px }
+
+    .chip-opt{border:1px solid var(--line);padding:8px 12px;border-radius:999px;background:#fff;cursor:pointer;user-select:none}
+    .chip-opt.active{border-color:#111827;background:#111827;color:#fff}
+
+    .pill{background:#fff;border:1px solid var(--line);padding:6px 10px;border-radius:999px}
+    .divider{height:1px;background:var(--line);margin:12px 0}
+
+    .footer-actions{
+      position:sticky;bottom:0;background:linear-gradient(to top,#ffffff,#ffffffe6 70%,transparent);
+      padding:12px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:center
+    }
+
     /* Alternância: usa o TOM SUAVE da própria família */
     .fam-0 .fam-body .row:nth-child(even){background:var(--fam0-soft)}
     .fam-1 .fam-body .row:nth-child(even){background:var(--fam1-soft)}
@@ -85,26 +129,6 @@
     .fam-9 .fam-body .row:nth-child(even){background:var(--fam9-soft)}
     .fam-10 .fam-body .row:nth-child(even){background:var(--fam10-soft)}
     .fam-11 .fam-body .row:nth-child(even){background:var(--fam11-soft)}
-
-    .chips{display:flex;gap:8px;flex-wrap:wrap}
-    .chip-opt{border:1px solid var(--line);padding:8px 12px;border-radius:999px;background:#fff;cursor:pointer;user-select:none}
-    .chip-opt.active{border-color:#111827;background:#111827;color:#fff}
-
-    .unit select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff}
-    .qty input{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px}
-
-    .actions{display:flex;gap:6px;justify-content:flex-end}
-    .actions .btn{padding:8px 10px}
-
-    .feedback{grid-column:1/-1;font-size:12px;color:#0f172a;padding:6px 2px 10px}
-
-    .pill{background:#fff;border:1px solid var(--line);padding:6px 10px;border-radius:999px}
-    .divider{height:1px;background:var(--line);margin:12px 0}
-
-    .footer-actions{
-      position:sticky;bottom:0;background:linear-gradient(to top,#ffffff,#ffffffe6 70%,transparent);
-      padding:12px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:center
-    }
 
     /* Aplicar cor forte no cabeçalho por família */
     .fam-0 .fam-head{background:var(--fam0-strong)}
@@ -120,21 +144,22 @@
     .fam-10 .fam-head{background:var(--fam10-strong)}
     .fam-11 .fam-head{background:var(--fam11-strong)}
 
-    @media (max-width:920px){
-      .row{grid-template-columns: 1.1fr auto 0.55fr 0.7fr auto auto}
-    }
-    @media (max-width:680px){
-      .row{grid-template-columns: 1fr auto 0.6fr 0.8fr auto auto}
+    /* MOBILE */
+    @media (max-width:480px){
+      .row{
+        grid-template-columns: 1fr 1fr;
+        grid-template-areas:
+          "name name"
+          "chips chips"
+          "qty add"
+          "actions actions"
+          "feedback feedback"
+          "editor editor";
+      }
+      .cell-qty input{ width:100% }
+      .cell-qty select.unit{ width:100% }
       header h1{font-size:16px}
     }
-
-    /* Editor inline */
-    .editor{
-      grid-column:1/-1; display:none; padding:10px; border:1px dashed var(--line); border-radius:10px; background:#fff
-    }
-    .editor.open{display:block}
-    .editor .grid{display:grid; grid-template-columns:repeat(4,1fr) auto auto; gap:8px}
-    .editor input, .editor select{width:100%; padding:10px; border:1px solid var(--line); border-radius:10px}
   </style>
 </head>
 <body>
@@ -146,29 +171,33 @@
     <button class="btn primary" id="btnCompartilhar">Compartilhar PDF</button>
   </header>
 
+  <!-- Barra de sincronização -->
+  <div id="syncbar" class="syncbar"><div class="spinner"></div><span id="syncmsg">Sincronizando com o servidor…</span></div>
+
   <div class="wrap" id="app"></div>
 
   <div class="footer-actions">
-    <span class="pill">Dados salvos automaticamente no dispositivo • Sincronizado no Firebase</span>
+    <span class="pill">Dados salvos no dispositivo • Sincronizado com Firebase</span>
   </div>
 
   <!-- jsPDF -->
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
-  <!-- ===== Firebase SDK (ESM CDN) + Helpers expostos em window.__fb ===== -->
+  <!-- ========= FIREBASE (ESM CDN) ========= -->
   <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-    import { 
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js';
+    import { getAuth, signInAnonymously } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
+    import {
       getFirestore, serverTimestamp, doc, runTransaction,
-      collection, addDoc
-    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+      collection, addDoc, getDocs
+    } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js';
 
+    // Config do teu projeto
     const firebaseConfig = {
-      apiKey: "AIzaSyBqpE9QB9Xns655eh4HPhEDwIop0gCPEzI",
+      apiKey: "AIzaSyBqpEQ9BX9ns655eH4hPHdEwIop0gCPEzI",
       authDomain: "estoque-serra-nobre.firebaseapp.com",
       projectId: "estoque-serra-nobre",
-      storageBucket: "estoque-serra-nobre.firebasestorage.app",
+      storageBucket: "estoque-serra-nobre.appspot.com",
       messagingSenderId: "513208551190",
       appId: "1:513208551190:web:4c7165b7887290193a7237"
     };
@@ -178,143 +207,105 @@
     const db = getFirestore(app);
     await signInAnonymously(auth);
 
-    function invId(family, product){
-      return `${family}__${product}`.toUpperCase().replace(/\s+/g,' ').trim();
-    }
+    const invId = (family, product) =>
+      `${family}__${product}`.toUpperCase().replace(/\s+/g,' ').trim();
 
-    // ADD incremento
     async function fbAddQuantity({ family, product, tipo, unit, qty }){
       const id = invId(family, product);
       const ref = doc(db, 'inventory', id);
-      let before=null, after=null;
-
       await runTransaction(db, async (tx)=>{
         const snap = await tx.get(ref);
         let data = snap.exists() ? snap.data() : {
-          family: family.toUpperCase(), product: product.toUpperCase(),
-          resfriado_kg:0, resfriado_cx:0, congelado_kg:0, congelado_cx:0
+          family: family.toUpperCase(),
+          product: product.toUpperCase(),
+          resfriado_kg: 0, resfriado_cx: 0,
+          congelado_kg: 0, congelado_cx: 0
         };
         const field =
           tipo === 'RESFRIADO'
-            ? (unit==='KG'?'resfriado_kg':'resfriado_cx')
-            : (unit==='KG'?'congelado_kg':'congelado_cx');
-        before = { [field]: data[field] };
+            ? (unit==='KG' ? 'resfriado_kg' : 'resfriado_cx')
+            : (unit==='KG' ? 'congelado_kg' : 'congelado_cx');
         data[field] = +(data[field]||0) + qty;
-        after = { [field]: data[field] };
         data.updated_at = serverTimestamp();
         tx.set(ref, data, { merge:true });
       });
-
-      await addDoc(collection(db,'history'), {
-        family: family.toUpperCase(), product: product.toUpperCase(),
+      await addDoc(collection(db,'history'),{
+        family: family.toUpperCase(),
+        product: product.toUpperCase(),
         tipo, unit, qty, action:'ADD',
-        before, after, at: serverTimestamp(),
-        uid: auth.currentUser?.uid || null, source:'pwa-estoque'
+        at: serverTimestamp(), source:'pwa-estoque'
       });
     }
 
-    // Edição absoluta
     async function fbEditAbsolute({ family, product, resfriado_kg, resfriado_cx, congelado_kg, congelado_cx }){
       const id = invId(family, product);
       const ref = doc(db, 'inventory', id);
-      let before=null, after=null;
-
       await runTransaction(db, async (tx)=>{
-        const snap = await tx.get(ref);
-        const cur = snap.exists() ? snap.data() : {
-          family: family.toUpperCase(), product: product.toUpperCase(),
-          resfriado_kg:0, resfriado_cx:0, congelado_kg:0, congelado_cx:0
-        };
-        before = {
-          resfriado_kg: cur.resfriado_kg, resfriado_cx: cur.resfriado_cx,
-          congelado_kg: cur.congelado_kg, congelado_cx: cur.congelado_cx
-        };
+        const cur = (await tx.get(ref)).data() || {family,product,resfriado_kg:0,resfriado_cx:0,congelado_kg:0,congelado_cx:0};
         const next = {
           ...cur,
-          resfriado_kg:+resfriado_kg, resfriado_cx:+resfriado_cx,
-          congelado_kg:+congelado_kg, congelado_cx:+congelado_cx,
+          family: family.toUpperCase(),
+          product: product.toUpperCase(),
+          resfriado_kg:+resfriado_kg||0, resfriado_cx:+resfriado_cx||0,
+          congelado_kg:+congelado_kg||0, congelado_cx:+congelado_cx||0,
           updated_at: serverTimestamp()
-        };
-        after = {
-          resfriado_kg: next.resfriado_kg, resfriado_cx: next.resfriado_cx,
-          congelado_kg: next.congelado_kg, congelado_cx: next.congelado_cx
         };
         tx.set(ref, next, { merge:true });
       });
-
-      await addDoc(collection(db,'history'), {
-        family: family.toUpperCase(), product: product.toUpperCase(),
-        action:'EDIT_ABS', before, after, at: serverTimestamp(),
-        uid: auth.currentUser?.uid || null, source:'pwa-estoque'
+      await addDoc(collection(db,'history'),{
+        family: family.toUpperCase(),
+        product: product.toUpperCase(),
+        action:'EDIT_ABS',
+        at: serverTimestamp(), source:'pwa-estoque'
       });
     }
 
     async function fbZeroItem({ family, product }){
       const id = invId(family, product);
       const ref = doc(db, 'inventory', id);
-      let before=null;
-
       await runTransaction(db, async (tx)=>{
-        const snap = await tx.get(ref);
-        const cur = snap.exists() ? snap.data() : {
-          family: family.toUpperCase(), product: product.toUpperCase(),
-          resfriado_kg:0, resfriado_cx:0, congelado_kg:0, congelado_cx:0
-        };
-        before = {
-          resfriado_kg: cur.resfriado_kg, resfriado_cx: cur.resfriado_cx,
-          congelado_kg: cur.congelado_kg, congelado_cx: cur.congelado_cx
-        };
-        tx.set(ref, {
-          family: family.toUpperCase(), product: product.toUpperCase(),
+        const cur = (await tx.get(ref)).data() || {};
+        const next = {
+          ...cur,
           resfriado_kg:0, resfriado_cx:0, congelado_kg:0, congelado_cx:0,
           updated_at: serverTimestamp()
-        }, { merge:true });
+        };
+        tx.set(ref, next, { merge:true });
       });
-
-      await addDoc(collection(db,'history'), {
+      await addDoc(collection(db,'history'),{
         family: family.toUpperCase(), product: product.toUpperCase(),
-        action:'ZERO', before, after:{resfriado_kg:0,resfriado_cx:0,congelado_kg:0,congelado_cx:0},
-        at: serverTimestamp(), uid: auth.currentUser?.uid || null, source:'pwa-estoque'
+        action:'ZERO', at: serverTimestamp(), source:'pwa-estoque'
       });
     }
 
     async function fbLogDeleteCustom({ family, product }){
-      await addDoc(collection(db,'history'), {
+      await addDoc(collection(db,'history'),{
         family: family.toUpperCase(), product: product.toUpperCase(),
-        action:'DELETE_CUSTOM', at: serverTimestamp(),
-        uid: auth.currentUser?.uid || null, source:'pwa-estoque'
+        action:'DELETE_CUSTOM', at: serverTimestamp(), source:'pwa-estoque'
       });
     }
 
-    window.__fb = { fbAddQuantity, fbEditAbsolute, fbZeroItem, fbLogDeleteCustom };
+    // 🔎 fetch agregados da coleção inventory
+    async function fbFetchAllInventory(){
+      const snap = await getDocs(collection(db, 'inventory'));
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    }
+
+    // expõe para o script principal
+    window.__fb = { fbAddQuantity, fbEditAbsolute, fbZeroItem, fbLogDeleteCustom, fbFetchAllInventory };
   </script>
 
+  <!-- ========= APP ========= -->
   <script>
-    /* ================== LOGO base64 (Serra-Nobre_3.*) ================== */
+    /* ===== LOGO (auto base64 de 'Serra-Nobre_3.*') ===== */
     const LOGO_KEY = 'estoque_logo_b64';
     const LOGO_FILE_ORDER = ['Serra-Nobre_3.png','Serra-Nobre_3.webp','Serra-Nobre_3.jpg','Serra-Nobre_3.jpeg'];
     let logoB64 = localStorage.getItem(LOGO_KEY) || null;
+    async function blobToB64(blob){return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(blob);});}
+    async function fetchAsB64(url){try{const r=await fetch(url,{cache:'no-store'});if(!r.ok)throw 0;return await blobToB64(await r.blob());}catch{return null;}}
+    async function ensureLogoB64(){ if(logoB64) return; for(const f of LOGO_FILE_ORDER){ const b=await fetchAsB64(f); if(b){ logoB64=b; localStorage.setItem(LOGO_KEY,b); break; } } }
 
-    async function blobToB64(blob){
-      return new Promise((resolve,reject)=>{
-        const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(blob);
-      });
-    }
-    async function fetchAsB64(url){
-      try{
-        const res = await fetch(url, {cache:'no-store'}); if(!res.ok) throw 0;
-        return await blobToB64(await res.blob());
-      }catch{ return null; }
-    }
-    async function ensureLogoB64(){
-      if(logoB64) return;
-      for(const f of LOGO_FILE_ORDER){
-        const b64 = await fetchAsB64(f);
-        if(b64){ logoB64 = b64; localStorage.setItem(LOGO_KEY, b64); break; }
-      }
-    }
-
-    /* ================== DADOS & STORE ================== */
+    /* ===== Dados das famílias ===== */
     const FAMILIAS = [
       { nome:"BOVINO GANCHO", itens:["CASADO GANCHO","DIANTEIRO GANCHO","COSTELA GANCHO","CHULETA GANCHO","COXA GANCHO"]},
       { nome:"BOVINO CORTES", itens:["ALCATRA","CARNE CABEÇA","CHULETA PRONTA","COXÃO DURO","COXÃO MOLE","MAMINHA","RETALHO OU NABA","VAZIO"]},
@@ -328,59 +319,60 @@
       { nome:"SUINO", itens:["CARRE SUINO","COSTELINHA SUINA","FILEZINHO SUINO","PALETA SUINA","PERNIL SUINO","SOBREPALETA SUINA"]},
     ];
     const PADROES = Object.fromEntries(FAMILIAS.map(f => [f.nome, new Set(f.itens)]));
+    const TIPOS = ["RESFRIADO","CONGELADO"];
 
-    // agora o store tem 4 campos (KG e CX) por tipo
-    const STORAGE_KEY = "estoque_pwa_v2";
+    /* ===== Persistência local ===== */
+    const STORAGE_KEY = "estoque_pwa_v3";
     function loadStore(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY))||{} }catch{ return {} } }
     function saveStore(d){ localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
     let store = loadStore();
     for(const fam of FAMILIAS){
       store[fam.nome] ??= {};
-      for(const p of fam.itens) store[fam.nome][p] ??= { RESFRIADO_KG:0, RESFRIADO_CX:0, CONGELADO_KG:0, CONGELADO_CX:0 };
+      for(const p of fam.itens) store[fam.nome][p] ??= { RESFRIADO:0, RESFRIADO_CX:0, CONGELADO:0, CONGELADO_CX:0 };
     }
     saveStore(store);
 
-    /* ================== HELPERS ================== */
+    /* ===== Helpers ===== */
     const $$ = s=>document.querySelector(s);
     const fmt = n => (Math.round(n*1000)/1000).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3});
     const round3 = n => Math.round(n*1000)/1000;
 
-    function totFamilia(f){
-      let rk=0, rc=0, ck=0, cc=0;
-      Object.values(store[f]||{}).forEach(v=>{
-        rk+=v.RESFRIADO_KG||0; rc+=v.RESFRIADO_CX||0;
-        ck+=v.CONGELADO_KG||0; cc+=v.CONGELADO_CX||0;
+    function displayUnit(family, unit){ return (family === 'BOVINO GANCHO' && unit === 'CX') ? 'UN' : unit; }
+    function familiaCxLabel(family){ return family === 'BOVINO GANCHO' ? 'UN' : 'CX'; }
+    function formatFamiliaMeta(family){
+      const d = store[family] || {};
+      let rkg=0, rcx=0, ckg=0, ccx=0;
+      Object.values(d).forEach(v=>{
+        rkg += v.RESFRIADO||0;  rcx += v.RESFRIADO_CX||0;
+        ckg += v.CONGELADO||0;  ccx += v.CONGELADO_CX||0;
       });
-      return {rk:round3(rk), rc:round3(rc), ck:round3(ck), cc:round3(cc)};
+      const cx = familiaCxLabel(family);
+      return `RESF: ${fmt(rkg)} KG / ${rcx} ${cx} • CONG: ${fmt(ckg)} KG / ${ccx} ${cx}`;
     }
+
     function renderHeaderMeta(familia){
       document.querySelectorAll('.card').forEach(section=>{
         if(section.querySelector('.fam-title')?.textContent===familia){
-          const m=section.querySelector('.fam-meta'); const t=totFamilia(familia);
-          m.textContent = `RESF: ${fmt(t.rk)} KG / ${fmt(t.rc)} CX • CONG: ${fmt(t.ck)} KG / ${fmt(t.cc)} CX`;
+          section.querySelector('.fam-meta').textContent = formatFamiliaMeta(familia);
         }
       });
     }
 
-    /* ================== UI ================== */
+    /* ===== UI ===== */
     function render(){
       const app = $$('#app'); app.innerHTML='';
       FAMILIAS.forEach((fam, idx)=>{
         const card = document.createElement('section'); card.className=`card fam-${idx}`;
         const head = document.createElement('div'); head.className='fam-head';
         const title = document.createElement('div'); title.className='fam-title'; title.textContent=fam.nome;
-        const meta = document.createElement('div'); meta.className='fam-meta';
-        const t = totFamilia(fam.nome);
-        meta.textContent = `RESF: ${fmt(t.rk)} KG / ${fmt(t.rc)} CX • CONG: ${fmt(t.ck)} KG / ${fmt(t.cc)} CX`;
+        const meta = document.createElement('div'); meta.className='fam-meta'; meta.textContent = formatFamiliaMeta(fam.nome);
         head.append(title, meta);
         const body = document.createElement('div'); body.className='fam-body open';
         head.addEventListener('click',()=>body.classList.toggle('open'));
 
-        // linhas padrão + custom
         const itensFamilia = Object.keys(store[fam.nome]||{});
         const ordenados = [...new Set([...fam.itens, ...itensFamilia])];
         ordenados.forEach(prod => body.appendChild(rowProduto(fam.nome, prod)));
-
         body.appendChild(divider());
         body.appendChild(rowNovoProduto(fam.nome));
 
@@ -389,136 +381,128 @@
     }
     function divider(){ const d=document.createElement('div'); d.className='divider'; return d; }
 
-    function ensureEntry(familia, produto){
-      store[familia] ??= {};
-      store[familia][produto] ??= { RESFRIADO_KG:0, RESFRIADO_CX:0, CONGELADO_KG:0, CONGELADO_CX:0 };
-    }
-
     function rowProduto(familia, produto){
-      ensureEntry(familia, produto);
+      store[familia] ??= {};
+      store[familia][produto] ??= { RESFRIADO:0, RESFRIADO_CX:0, CONGELADO:0, CONGELADO_CX:0 };
+
       const wrap = document.createElement('div'); wrap.className='row';
 
-      // nome
-      const name = document.createElement('div'); name.className='name'; name.textContent=produto;
+      const name = document.createElement('div'); name.className='cell-name'; name.textContent=produto;
 
-      // chips tipo
-      const chips = document.createElement('div'); chips.className='chips';
+      const chips = document.createElement('div'); chips.className='cell-chips';
       const optR = document.createElement('div'); optR.className='chip-opt'; optR.textContent='RESFRIADO';
       const optC = document.createElement('div'); optC.className='chip-opt'; optC.textContent='CONGELADO';
       chips.append(optR,optC);
       let selTipo='RESFRIADO';
-      function setSel(t){ selTipo=t; optR.classList.toggle('active', t==='RESFRIADO'); optC.classList.toggle('active', t==='CONGELADO'); }
+      const setSel = t => { selTipo=t; optR.classList.toggle('active', t==='RESFRIADO'); optC.classList.toggle('active', t==='CONGELADO'); };
       setSel('RESFRIADO'); optR.onclick=()=>setSel('RESFRIADO'); optC.onclick=()=>setSel('CONGELADO');
 
-      // unidade KG/CX
-      const unitDiv = document.createElement('div'); unitDiv.className='unit';
-      const selUnit = document.createElement('select'); selUnit.innerHTML = '<option>KG</option><option>CX</option>';
-      unitDiv.appendChild(selUnit);
+      const qty = document.createElement('div'); qty.className='cell-qty';
+      const unit = document.createElement('select'); unit.className='unit'; unit.innerHTML='<option>KG</option><option>CX</option>';
+      const inp  = document.createElement('input'); inp.type='number'; inp.step='0.001'; inp.min='0'; inp.placeholder='Peso (kg/cx)';
+      qty.append(unit, inp);
 
-      // peso
-      const qty = document.createElement('div'); qty.className='qty';
-      const inp = document.createElement('input'); inp.type='number'; inp.step='0.001'; inp.min='0'; inp.placeholder='Peso/Qtde';
+      const add = document.createElement('button'); add.className='btn cell-add'; add.textContent='Adicionar';
 
-      // adicionar
-      const add = document.createElement('button'); add.className='btn'; add.textContent='Adicionar';
-
-      // ações: Editar / Excluir
-      const actions = document.createElement('div'); actions.className='actions';
+      const actions = document.createElement('div'); actions.className='cell-actions';
       const btnEdit = document.createElement('button'); btnEdit.className='btn ghost'; btnEdit.textContent='Editar';
       const btnDel  = document.createElement('button'); btnDel.className='btn ghost';  btnDel.textContent='Excluir';
       actions.append(btnEdit, btnDel);
 
-      // feedback abaixo
       const feedback = document.createElement('div'); feedback.className='feedback';
 
-      // editor inline (4 campos absolutos)
       const editor = document.createElement('div'); editor.className='editor';
       const grid = document.createElement('div'); grid.className='grid';
-      const inRK = document.createElement('input'); inRK.type='number'; inRK.step='0.001'; inRK.min='0'; inRK.placeholder='RESFRIADO KG';
-      const inRC = document.createElement('input'); inRC.type='number'; inRC.step='0.001'; inRC.min='0'; inRC.placeholder='RESFRIADO CX';
-      const inCK = document.createElement('input'); inCK.type='number'; inCK.step='0.001'; inCK.min='0'; inCK.placeholder='CONGELADO KG';
-      const inCC = document.createElement('input'); inCC.type='number'; inCC.step='0.001'; inCC.min='0'; inCC.placeholder='CONGELADO CX';
-      const bSalvar = document.createElement('button'); bSalvar.className='btn primary'; bSalvar.textContent='Salvar';
-      const bCancel = document.createElement('button'); bCancel.className='btn'; bCancel.textContent='Cancelar';
-      grid.append(inRK,inRC,inCK,inCC,bSalvar,bCancel);
-      editor.appendChild(grid);
+      const inResfKg = document.createElement('input'); inResfKg.type='number'; inResfKg.step='0.001'; inResfKg.min='0'; inResfKg.placeholder='RESF (KG)';
+      const inResfCx = document.createElement('input'); inResfCx.type='number'; inResfCx.step='1';     inResfCx.min='0'; inResfCx.placeholder='RESF (CX/UN)';
+      const inCongKg = document.createElement('input'); inCongKg.type='number'; inCongKg.step='0.001'; inCongKg.min='0'; inCongKg.placeholder='CONG (KG)';
+      const inCongCx = document.createElement('input'); inCongCx.type='number'; inCongCx.step='1';     inCongCx.min='0'; inCongCx.placeholder='CONG (CX/UN)';
+      const bSalvar  = document.createElement('button'); bSalvar.className='btn primary'; bSalvar.textContent='Salvar';
+      const bCancel  = document.createElement('button'); bCancel.className='btn';         bCancel.textContent='Cancelar';
+      grid.append(inResfKg,inResfCx,inCongKg,inCongCx,bSalvar,bCancel); editor.appendChild(grid);
 
       function openEditor(){
-        const v = store[familia][produto];
-        inRK.value=v.RESFRIADO_KG; inRC.value=v.RESFRIADO_CX;
-        inCK.value=v.CONGELADO_KG; inCC.value=v.CONGELADO_CX;
+        const cur = store[familia][produto];
+        inResfKg.value = (cur.RESFRIADO || 0).toString().replace('.',',');
+        inResfCx.value = (cur.RESFRIADO_CX || 0);
+        inCongKg.value = (cur.CONGELADO || 0).toString().replace('.',',');
+        inCongCx.value = (cur.CONGELADO_CX || 0);
         editor.classList.add('open');
       }
-      function closeEditor(){ editor.classList.remove('open'); }
+      const closeEditor = ()=> editor.classList.remove('open');
 
       btnEdit.addEventListener('click', openEditor);
       bCancel.addEventListener('click', closeEditor);
 
       bSalvar.addEventListener('click', async ()=>{
-        const nrk=+((inRK.value||'0').replace(',','.'));
-        const nrc=+((inRC.value||'0').replace(',','.'));
-        const nck=+((inCK.value||'0').replace(',','.'));
-        const ncc=+((inCC.value||'0').replace(',','.'));
-        if([nrk,nrc,nck,ncc].some(x=>isNaN(x)||x<0)){ alert('Valores inválidos.'); return; }
-        store[familia][produto]={ RESFRIADO_KG:round3(nrk), RESFRIADO_CX:round3(nrc), CONGELADO_KG:round3(nck), CONGELADO_CX:round3(ncc) };
+        const nrkg = parseFloat((inResfKg.value||'0').replace(',','.'))||0;
+        const nrcx = parseInt(inResfCx.value||'0')||0;
+        const nckg = parseFloat((inCongKg.value||'0').replace(',','.'))||0;
+        const nccx = parseInt(inCongCx.value||'0')||0;
+
+        store[familia][produto] = { RESFRIADO: round3(nrkg), RESFRIADO_CX: nrcx, CONGELADO: round3(nckg), CONGELADO_CX: nccx };
         saveStore(store);
         renderHeaderMeta(familia);
-        feedback.textContent = `Atualizado: RESF ${fmt(nrk)} KG / ${fmt(nrc)} CX • CONG ${fmt(nck)} KG / ${fmt(ncc)} CX`;
+        feedback.textContent = `Atualizado: RESF ${fmt(nrkg)} kg / ${nrcx} ${familiaCxLabel(familia)} • CONG ${fmt(nckg)} kg / ${nccx} ${familiaCxLabel(familia)}`;
+
+        if (window.__fb?.fbEditAbsolute) {
+          await window.__fb.fbEditAbsolute({
+            family: familia, product: produto,
+            resfriado_kg: nrkg, resfriado_cx: nrcx, congelado_kg: nckg, congelado_cx: nccx
+          });
+        }
         closeEditor();
-        // Firestore
-        await window.__fb.fbEditAbsolute({
-          family: familia, product: produto,
-          resfriado_kg:nrk, resfriado_cx:nrc, congelado_kg:nck, congelado_cx:ncc
-        });
       });
 
       btnDel.addEventListener('click', async ()=>{
         const isPadrao = PADROES[familia]?.has(produto);
         if(isPadrao){
-          if(confirm('Item padrão. Deseja zerar os totais?')){
-            store[familia][produto]={ RESFRIADO_KG:0, RESFRIADO_CX:0, CONGELADO_KG:0, CONGELADO_CX:0 };
+          if(confirm('Item padrão: deseja zerar os totais?')){
+            store[familia][produto] = { RESFRIADO:0, RESFRIADO_CX:0, CONGELADO:0, CONGELADO_CX:0 };
             saveStore(store); renderHeaderMeta(familia);
-            feedback.textContent='Totais zerados.';
-            await window.__fb.fbZeroItem({ family: familia, product: produto });
+            feedback.textContent = 'Totais zerados.';
+            if(window.__fb?.fbZeroItem){ await window.__fb.fbZeroItem({ family: familia, product: produto }); }
           }
-        } else {
-          if(confirm('Remover este item personalizado da lista?')){
-            delete store[familia][produto]; saveStore(store);
-            wrap.remove(); renderHeaderMeta(familia);
-            await window.__fb.fbLogDeleteCustom({ family: familia, product: produto });
+        }else{
+          if(confirm('Remover item personalizado?')){
+            delete store[familia][produto];
+            saveStore(store); wrap.remove(); renderHeaderMeta(familia);
+            if(window.__fb?.fbLogDeleteCustom){ await window.__fb.fbLogDeleteCustom({ family: familia, product: produto }); }
           }
         }
       });
 
       add.addEventListener('click', async ()=>{
         const val = parseFloat((inp.value||'').replace(',','.'));
-        if(isNaN(val) || val<=0){ alert('Informe um valor válido (> 0).'); return; }
-        const unit = selUnit.value; // 'KG' | 'CX'
-        const key =
-          selTipo==='RESFRIADO'
-            ? (unit==='KG'?'RESFRIADO_KG':'RESFRIADO_CX')
-            : (unit==='KG'?'CONGELADO_KG':'CONGELADO_CX');
+        if(isNaN(val) || val<=0){ alert('Informe um peso válido (> 0).'); return; }
+        const u = unit.value; // 'KG' | 'CX'
+        const uLabel = displayUnit(familia, u);
 
-        store[familia][produto][key] = round3((store[familia][produto][key]||0) + val);
-        saveStore(store);
-        renderHeaderMeta(familia);
-        feedback.textContent = `Adicionado: ${fmt(val)} ${unit} • ${selTipo}. Agora — RESF ${fmt(store[familia][produto].RESFRIADO_KG)} KG / ${fmt(store[familia][produto].RESFRIADO_CX)} CX • CONG ${fmt(store[familia][produto].CONGELADO_KG)} KG / ${fmt(store[familia][produto].CONGELADO_CX)} CX`;
+        const cur = store[familia][produto];
+        if(selTipo==='RESFRIADO'){
+          if(u==='KG') cur.RESFRIADO = round3((cur.RESFRIADO||0) + val);
+          else         cur.RESFRIADO_CX = (cur.RESFRIADO_CX||0) + Math.round(val);
+        }else{
+          if(u==='KG') cur.CONGELADO = round3((cur.CONGELADO||0) + val);
+          else         cur.CONGELADO_CX = (cur.CONGELADO_CX||0) + Math.round(val);
+        }
+        saveStore(store); renderHeaderMeta(familia);
+
+        feedback.textContent =
+          `Adicionado: ${fmt(val)} ${uLabel} • ${selTipo}. `
+          + `Totais — RESF ${fmt(cur.RESFRIADO||0)} kg / ${cur.RESFRIADO_CX||0} ${familiaCxLabel(familia)} `
+          + `• CONG ${fmt(cur.CONGELADO||0)} kg / ${cur.CONGELADO_CX||0} ${familiaCxLabel(familia)}`;
+
         inp.value='';
 
-        // Firestore (histórico + agregado)
-        await window.__fb.fbAddQuantity({ family: familia, product: produto, tipo: selTipo, unit, qty: val });
+        if(window.__fb?.fbAddQuantity){
+          await window.__fb.fbAddQuantity({
+            family: familia, product: produto, tipo: selTipo, unit: u, qty: (u==='KG'? val : Math.round(val))
+          });
+        }
       });
 
-      qty.appendChild(inp);
-
-      wrap.append(name, chips, unitDiv, qty, add, actions);
-
-      // feedback + editor
-      const feedbackDiv = document.createElement('div'); feedbackDiv.className='feedback'; wrap.appendChild(feedbackDiv);
-      wrap.appendChild(editor);
-      // ponteiro
-      wrap._feedback = feedback; // (não usado, mas mantido)
-
+      wrap.append(name, chips, qty, add, actions, feedback, editor);
       return wrap;
     }
 
@@ -526,59 +510,61 @@
       const wrap = document.createElement('div'); wrap.className='row';
       const name = document.createElement('input'); name.placeholder='Novo produto (CAIXA ALTA)'; name.style.textTransform='uppercase';
 
-      // chips tipo
-      const chips = document.createElement('div'); chips.className='chips';
+      const chips = document.createElement('div'); chips.className='cell-chips';
       const optR = document.createElement('div'); optR.className='chip-opt'; optR.textContent='RESFRIADO';
       const optC = document.createElement('div'); optC.className='chip-opt'; optC.textContent='CONGELADO';
       chips.append(optR,optC);
-      let selTipo='RESFRIADO';
-      function setSel(t){ selTipo=t; optR.classList.toggle('active', t==='RESFRIADO'); optC.classList.toggle('active', t==='CONGELADO'); }
+      let selTipo='RESFRIADO'; const setSel=t=>{ selTipo=t; optR.classList.toggle('active',t==='RESFRIADO'); optC.classList.toggle('active',t==='CONGELADO'); };
       setSel('RESFRIADO'); optR.onclick=()=>setSel('RESFRIADO'); optC.onclick=()=>setSel('CONGELADO');
 
-      // unidade
-      const unitDiv = document.createElement('div'); unitDiv.className='unit';
-      const selUnit = document.createElement('select'); selUnit.innerHTML = '<option>KG</option><option>CX</option>';
-      unitDiv.appendChild(selUnit);
+      const qty = document.createElement('div'); qty.className='cell-qty';
+      const unit = document.createElement('select'); unit.className='unit'; unit.innerHTML='<option>KG</option><option>CX</option>';
+      const inp  = document.createElement('input'); inp.type='number'; inp.step='0.001'; inp.min='0'; inp.placeholder='Peso (kg/cx)';
+      qty.append(unit, inp);
 
-      // valor
-      const inp = document.createElement('input'); inp.type='number'; inp.step='0.001'; inp.min='0'; inp.placeholder='Peso/Qtde';
-
-      const add = document.createElement('button'); add.className='btn'; add.textContent='Adicionar';
+      const add = document.createElement('button'); add.className='btn cell-add'; add.textContent='Adicionar';
+      const spacer = document.createElement('div'); spacer.className='cell-actions';
       const feedback = document.createElement('div'); feedback.className='feedback';
 
       add.addEventListener('click', async ()=>{
         const prod = (name.value||'').trim().toUpperCase();
         const val  = parseFloat((inp.value||'').replace(',','.'));
-        const unit = selUnit.value;
         if(!prod){ alert('Digite o nome do produto.'); return; }
-        if(isNaN(val)||val<=0){ alert('Informe um valor válido (> 0).'); return; }
+        if(isNaN(val)||val<=0){ alert('Informe um peso válido (> 0).'); return; }
 
-        ensureEntry(familia, prod);
-        const key =
-          selTipo==='RESFRIADO'
-            ? (unit==='KG'?'RESFRIADO_KG':'RESFRIADO_CX')
-            : (unit==='KG'?'CONGELADO_KG':'CONGELADO_CX');
+        const u = unit.value; const uLabel = displayUnit(familia, u);
+        store[familia] ??= {};
+        const cur = store[familia][prod] ??= {RESFRIADO:0, RESFRIADO_CX:0, CONGELADO:0, CONGELADO_CX:0};
 
-        store[familia][prod][key] = round3((store[familia][prod][key]||0) + val);
+        if(selTipo==='RESFRIADO'){
+          if(u==='KG') cur.RESFRIADO = round3(cur.RESFRIADO + val);
+          else         cur.RESFRIADO_CX = (cur.RESFRIADO_CX||0) + Math.round(val);
+        }else{
+          if(u==='KG') cur.CONGELADO = round3(cur.CONGELADO + val);
+          else         cur.CONGELADO_CX = (cur.CONGELADO_CX||0) + Math.round(val);
+        }
         saveStore(store);
-        // inserir linha visualmente
+
         const parent = wrap.parentElement;
         parent.insertBefore(rowProduto(familia, prod), wrap);
         renderHeaderMeta(familia);
-        feedback.textContent = `Adicionado: ${fmt(val)} ${unit} • ${selTipo} em ${prod}`;
+
+        feedback.textContent = `Adicionado: ${fmt(val)} ${uLabel} • ${selTipo} em ${prod}`;
         name.value=''; inp.value='';
 
-        await window.__fb.fbAddQuantity({ family: familia, product: prod, tipo: selTipo, unit, qty: val });
+        if(window.__fb?.fbAddQuantity){
+          await window.__fb.fbAddQuantity({
+            family: familia, product: prod, tipo: selTipo, unit: u, qty: (u==='KG'? val : Math.round(val))
+          });
+        }
       });
 
-      // ações vazias nessa linha
-      const actions = document.createElement('div'); actions.className='actions';
-
-      wrap.append(name, chips, unitDiv, inp, add, actions, feedback);
+      const cellNameWrap = document.createElement('div'); cellNameWrap.className='cell-name'; cellNameWrap.appendChild(name);
+      wrap.append(cellNameWrap, chips, qty, add, spacer, feedback);
       return wrap;
     }
 
-    /* ================== PDF ================== */
+    /* ===== PDF ===== */
     const PALETAS = [
       {soft:'#eef2ff', strong:'#6366f1'},
       {soft:'#ecfeff', strong:'#06b6d4'},
@@ -593,10 +579,7 @@
       {soft:'#f0f9ff', strong:'#0ea5e9'},
       {soft:'#fefce8', strong:'#eab308'},
     ];
-    function hex2rgb(hex){
-      const h = hex.replace('#','');
-      return { r:parseInt(h.slice(0,2),16), g:parseInt(h.slice(2,4),16), b:parseInt(h.slice(4,6),16) };
-    }
+    const hex2rgb = hex => { const h=hex.replace('#',''); return {r:parseInt(h.slice(0,2),16), g:parseInt(h.slice(2,4),16), b:parseInt(h.slice(4,6),16)} };
 
     async function gerarPDF(){
       const { jsPDF } = window.jspdf;
@@ -616,22 +599,22 @@
       doc.text('ESTOQUE DO DIA', W/2, y+8, {align:'center'});
       doc.setFont('helvetica','normal'); doc.setFontSize(10);
       doc.text(new Date().toLocaleString('pt-BR'), W/2, y+24, {align:'center'});
-      y += 44; // MAIS espaço antes da tabela
+      y += 40;
 
       for(let i=0;i<FAMILIAS.length;i++){
         const fam = FAMILIAS[i].nome;
         const itens = Object.keys(store[fam]||{}).filter(p=>{
-          const v = store[fam][p];
-          return (v.RESFRIADO_KG||0) > 0 || (v.RESFRIADO_CX||0) > 0 ||
-                 (v.CONGELADO_KG||0) > 0 || (v.CONGELADO_CX||0) > 0;
+          const v = store[fam][p]||{};
+          return (v.RESFRIADO||0) > 0 || (v.CONGELADO||0) > 0 || (v.RESFRIADO_CX||0) > 0 || (v.CONGELADO_CX||0) > 0;
         });
         if(itens.length===0) continue;
 
         if(y > 740){ doc.addPage(); y = margin; }
 
-        // Faixa da família (suave) + título central (forte)
         const soft = hex2rgb(PALETAS[i%PALETAS.length].soft);
         const strong = hex2rgb(PALETAS[i%PALETAS.length].strong);
+
+        // Faixa família
         doc.setFillColor(soft.r,soft.g,soft.b);
         doc.rect(margin, y, W - margin*2, 24, 'F');
         doc.setTextColor(strong.r,strong.g,strong.b);
@@ -639,46 +622,44 @@
         doc.text(fam, W/2, y+16, {align:'center'});
         doc.setTextColor(0,0,0);
 
-        y += 40; // MAIS espaço (1+ linhas) antes do cabeçalho da tabela
+        y += 40; // espaço MAIOR antes do cabeçalho
 
-        // Cabeçalho da tabela (4 "colunas" agregadas em 2 grupos)
+        // Cabeçalho tabela
+        const cxLbl = familiaCxLabel(fam);
         doc.setFont('helvetica','bold'); doc.setFontSize(10);
         doc.text('PRODUTO', margin, y);
-        doc.text('RESFRIADO (KG / CX)', margin+350, y, {align:'right'});
-        doc.text('CONGELADO (KG / CX)', margin+540, y, {align:'right'});
-        y += 10;
-        doc.line(margin, y, W - margin, y); // linha separadora
-        y += 10; // desce mais para não "colidir"
+        doc.text(`RESFRIADO (KG / ${cxLbl})`, margin+320, y, {align:'right'});
+        doc.text(`CONGELADO (KG / ${cxLbl})`, margin+520, y, {align:'right'});
+        y += 12;
+        doc.setDrawColor(200); doc.line(margin, y, W - margin, y);
+        y += 8; // baixa início dos itens (sem sobreposição)
 
-        // Linhas (zebra cinza e fonte 9)
         doc.setFont('helvetica','normal'); doc.setFontSize(9);
-        let rk=0, rc=0, ck=0, cc=0;
-        let rowIndex = 0;
+        let frkg=0, frcx=0, fckg=0, fccx=0;
+
+        let row = 0;
         for(const p of itens.sort()){
           const v = store[fam][p];
-
-          if(y > 780){ doc.addPage(); y = margin; rowIndex=0; }
+          if(y > 780){ doc.addPage(); y = margin; row = 0; }
 
           // zebra cinza
-          if(rowIndex % 2 === 1){
+          if(row % 2 === 1){
             doc.setFillColor(240,240,240);
             doc.rect(margin, y-10, W - margin*2, 16, 'F');
           }
 
           doc.text(p, margin, y);
-          doc.text(`${fmt(v.RESFRIADO_KG)} / ${fmt(v.RESFRIADO_CX)}`, margin+540-190, y, {align:'right'}); // 350->grupo RESF
-          doc.text(`${fmt(v.CONGELADO_KG)} / ${fmt(v.CONGELADO_CX)}`, margin+540, y, {align:'right'});
-
-          y += 16; rowIndex++;
-          rk+=v.RESFRIADO_KG||0; rc+=v.RESFRIADO_CX||0; ck+=v.CONGELADO_KG||0; cc+=v.CONGELADO_CX||0;
+          doc.text(`${fmt(v.RESFRIADO||0)} / ${v.RESFRIADO_CX||0}`, margin+320, y, {align:'right'});
+          doc.text(`${fmt(v.CONGELADO||0)} / ${v.CONGELADO_CX||0}`, margin+520, y, {align:'right'});
+          y += 16; row++;
+          frkg += v.RESFRIADO||0; frcx += v.RESFRIADO_CX||0;
+          fckg += v.CONGELADO||0; fccx += v.CONGELADO_CX||0;
         }
 
-        // Totais da família
-        y += 2;
-        doc.setFont('helvetica','bold'); doc.setFontSize(10);
+        y += 2; doc.setFont('helvetica','bold'); doc.setFontSize(10);
         doc.text('TOTAL', margin, y);
-        doc.text(`${fmt(rk)} / ${fmt(rc)}`, margin+540-190, y, {align:'right'});
-        doc.text(`${fmt(ck)} / ${fmt(cc)}`, margin+540, y, {align:'right'});
+        doc.text(`${fmt(frkg)} / ${frcx}`, margin+320, y, {align:'right'});
+        doc.text(`${fmt(fckg)} / ${fccx}`, margin+520, y, {align:'right'});
         doc.setFont('helvetica','normal'); doc.setFontSize(9);
         y += 14;
       }
@@ -691,13 +672,7 @@
       window.open(url, '_blank');
       setTimeout(()=>URL.revokeObjectURL(url), 60000);
     }
-
-    async function acaoGerar(){
-      await ensureLogoB64();
-      const blob = await gerarPDF();
-      await abrirPDFEmAba(blob);
-    }
-
+    async function acaoGerar(){ await ensureLogoB64(); const blob = await gerarPDF(); await abrirPDFEmAba(blob); }
     async function acaoCompartilhar(){
       await ensureLogoB64();
       const blob = await gerarPDF();
@@ -708,26 +683,131 @@
       }
     }
 
-    // Topo
+    /* ===== SYNC PROFISSIONAL (server-wins com backoff, timeout e validação) ===== */
+    const SYNC_META_KEY = 'estoque_sync_meta';
+    function setSyncBar(state, msg){
+      const bar=$$('#syncbar'); const m=$$('#syncmsg');
+      if(!bar||!m) return;
+      bar.classList.remove('error');
+      if(state==='hide'){ bar.classList.remove('show'); return; }
+      if(state==='error'){ bar.classList.add('show'); bar.classList.add('error'); m.textContent = msg || 'Falha ao sincronizar. Usando dados locais.'; return; }
+      bar.classList.add('show'); m.textContent = msg || 'Sincronizando com o servidor…';
+    }
+    function isValidRow(r){
+      if(!r) return false;
+      const fam = (r.family||'').toUpperCase(); const prod=(r.product||'').toUpperCase();
+      const nums = ['resfriado_kg','resfriado_cx','congelado_kg','congelado_cx'];
+      return fam && prod && nums.every(k => typeof r[k] === 'number' || r[k] === undefined);
+    }
+
+    async function fetchInventorySafe(signal){
+      // encapsula a chamada ao Firebase exposta no window
+      return await window.__fb.fbFetchAllInventory();
+    }
+
+    async function syncFromFirestore(){
+      // se estiver offline, não tenta
+      if(typeof navigator!=='undefined' && !navigator.onLine){ return {ok:false, offline:true}; }
+
+      setSyncBar('show','Sincronizando com o servidor…');
+      const maxAttempts = 3;
+      let delay = 600; // ms
+      for(let attempt=1; attempt<=maxAttempts; attempt++){
+        try{
+          // timeout por tentativa (7s)
+          const ctl = new AbortController();
+          const to = setTimeout(()=>ctl.abort(), 7000);
+          const rows = await fetchInventorySafe(ctl.signal);
+          clearTimeout(to);
+
+          if(!Array.isArray(rows)) throw new Error('Resposta inesperada');
+
+          // valida e normaliza
+          const valid = rows.filter(isValidRow);
+          // build novo estado server-wins
+          const next = {};
+          for(const fam of FAMILIAS){ next[fam.nome] = {}; } // garante famílias
+
+          for(const r of valid){
+            const family = (r.family||'').toUpperCase();
+            const product = (r.product||'').toUpperCase();
+            next[family] ??= {};
+            next[family][product] = {
+              RESFRIADO: +(r.resfriado_kg||0),
+              RESFRIADO_CX: +(r.resfriado_cx||0),
+              CONGELADO: +(r.congelado_kg||0),
+              CONGELADO_CX: +(r.congelado_cx||0)
+            };
+          }
+
+          // mantém itens padrão ausentes do servidor como 0
+          for(const fam of FAMILIAS){
+            for(const p of fam.itens){
+              next[fam.nome][p] ??= { RESFRIADO:0, RESFRIADO_CX:0, CONGELADO:0, CONGELADO_CX:0 };
+            }
+          }
+
+          // preserva itens personalizados locais que não existem no servidor (opcional)
+          const local = loadStore();
+          for(const [fam, produtos] of Object.entries(local||{})){
+            for(const [prod, vals] of Object.entries(produtos||{})){
+              if(!next[fam]) next[fam] = {};
+              if(!next[fam][prod]){
+                next[fam][prod] = {
+                  RESFRIADO:+(vals.RESFRIADO||0),
+                  RESFRIADO_CX:+(vals.RESFRIADO_CX||0),
+                  CONGELADO:+(vals.CONGELADO||0),
+                  CONGELADO_CX:+(vals.CONGELADO_CX||0),
+                };
+              }
+            }
+          }
+
+          // aplica
+          store = next;
+          saveStore(store);
+          localStorage.setItem(SYNC_META_KEY, JSON.stringify({ last_success: new Date().toISOString(), rows: valid.length }));
+          setSyncBar('hide');
+          return {ok:true, rows: valid.length};
+        }catch(err){
+          console.warn(`sync attempt ${attempt} falhou`, err);
+          if(attempt < maxAttempts){
+            await new Promise(r=>setTimeout(r, delay));
+            delay *= 2; // backoff
+          }else{
+            setSyncBar('error','Falha ao sincronizar. Usando dados locais.');
+            return {ok:false, error:true};
+          }
+        }
+      }
+    }
+
+    /* ===== Topo ===== */
     document.getElementById('btnExportar').addEventListener('click', acaoGerar);
     document.getElementById('btnCompartilhar').addEventListener('click', acaoCompartilhar);
-    document.getElementById('btnLimpar').addEventListener('click', async ()=>{
+    document.getElementById('btnLimpar').addEventListener('click', ()=>{
       if(confirm('Zerar todo o estoque?')){
+        store = {};
         for(const fam of FAMILIAS){
-          for(const p of Object.keys(store[fam.nome]||{})){
-            store[fam.nome][p]={ RESFRIADO_KG:0, RESFRIADO_CX:0, CONGELADO_KG:0, CONGELADO_CX:0 };
-            // registra ZERO por item padrão (não chama para custom removidos)
-            await window.__fb.fbZeroItem({ family:fam.nome, product:p });
-          }
+          store[fam.nome]={};
+          for(const p of fam.itens) store[fam.nome][p]={RESFRIADO:0,RESFRIADO_CX:0,CONGELADO:0,CONGELADO_CX:0};
         }
         saveStore(store); render();
       }
     });
 
-    // Bootstrap
+    /* ===== Bootstrap ===== */
     (async ()=>{
       await ensureLogoB64();
+
+      // Sync robusto
+      const res = await syncFromFirestore();
+      // Renderiza mesmo se falhar o sync (usa local)
       render();
+
+      // Atualiza metas após render
+      FAMILIAS.forEach(f => renderHeaderMeta(f.nome));
+
       if('serviceWorker' in navigator){
         navigator.serviceWorker.register('./sw.js').catch(console.error);
       }
