@@ -34,10 +34,7 @@
     }
 
     *{box-sizing:border-box}
-    body{
-      margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;
-      background:var(--bg);color:var(--ink)
-    }
+    body{ margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial; background:var(--bg);color:var(--ink) }
 
     header{
       position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--line);
@@ -68,10 +65,10 @@
     /* Linhas de item (fonte base 16px); título da família +2 => 18px */
     .row{
       display:grid;grid-template-columns: 1.2fr auto 0.65fr 0.6fr auto auto; /* nome | chips | unidade | peso | adicionar | ações */
-      gap:8px;padding:10px 8px;border-bottom:1px dashed var(--line);align-items:center;
-      font-size:16px
+      gap:8px;padding:10px 8px;border-bottom:1px dashed var(--line);align-items:center;font-size:16px
     }
     .name{font-weight:700;text-transform:uppercase}
+
     /* Alternância: usa o TOM SUAVE da própria família */
     .fam-0 .fam-body .row:nth-child(even){background:var(--fam0-soft)}
     .fam-1 .fam-body .row:nth-child(even){background:var(--fam1-soft)}
@@ -95,7 +92,6 @@
 
     .actions{display:flex;gap:6px;justify-content:flex-end}
     .actions .btn{padding:8px 10px}
-
     .feedback{grid-column:1/-1;font-size:12px;color:#0f172a;padding:6px 2px 10px;min-height:18px}
 
     .pill{background:#fff;border:1px solid var(--line);padding:6px 10px;border-radius:999px}
@@ -206,11 +202,13 @@
           resfriado_kg: 0, resfriado_cx: 0,
           congelado_kg: 0, congelado_cx: 0
         };
+        const isKg = unit === "KG";
         const field =
           tipo === "RESFRIADO"
-            ? (unit === "KG" ? "resfriado_kg" : "resfriado_cx")
-            : (unit === "KG" ? "congelado_kg" : "congelado_cx");
-        data[field] = +(data[field] || 0) + (unit==='KG' ? +qty : Math.round(+qty));
+            ? (isKg ? "resfriado_kg" : "resfriado_cx")
+            : (isKg ? "congelado_kg" : "congelado_cx");
+        // UN cai no mesmo campo de CX
+        data[field] = +(data[field] || 0) + (isKg ? +qty : Math.round(+qty));
         data.updated_at = serverTimestamp();
         tx.set(ref, data, { merge: true });
       });
@@ -319,7 +317,7 @@
     const PADROES = Object.fromEntries(FAMILIAS.map(f => [f.nome, new Set(f.itens)]));
 
     // store com quatro campos por produto
-    const STORAGE_KEY = "estoque_pwa_v3"; // bump para não conflitar com versões antigas
+    const STORAGE_KEY = "estoque_pwa_v3";
     function loadStore(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY))||{} }catch{ return {} } }
     function saveStore(d){ localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
     let store = loadStore();
@@ -334,8 +332,7 @@
     const fmt = n => (Math.round(n*1000)/1000).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3});
     const round3 = n => Math.round(n*1000)/1000;
     const iint = n => parseInt(Math.round(n||0)); // inteiro para CX/UN
-
-    function cxLabelForFamily(fam){ return fam==='BOVINO GANCHO' ? 'UN' : 'CX'; }
+    const cxLabelForFamily = fam => fam==='BOVINO GANCHO' ? 'UN' : 'CX';
 
     function totFamilia(f){
       let rk=0, rc=0, ck=0, cc=0;
@@ -364,9 +361,7 @@
           const rows = await window.__fb.fbFetchAllInventory();
           if(!Array.isArray(rows)) throw new Error('resposta inválida');
           const next = {};
-          // garante famílias e zera
           FAMILIAS.forEach(f => next[f.nome] = {});
-          // aplica server -> local
           for(const r of rows){
             const fam = (r.family||'').toUpperCase();
             const prod= (r.product||'').toUpperCase();
@@ -379,7 +374,6 @@
               CONGELADO_CX:+(r.congelado_cx||0),
             };
           }
-          // mantém padrões ausentes como 0
           for(const fam of FAMILIAS){
             for(const p of fam.itens){
               next[fam.nome][p] ??= { RESFRIADO_KG:0, RESFRIADO_CX:0, CONGELADO_KG:0, CONGELADO_CX:0 };
@@ -430,6 +424,13 @@
       store[familia][produto] ??= { RESFRIADO_KG:0, RESFRIADO_CX:0, CONGELADO_KG:0, CONGELADO_CX:0 };
     }
 
+    function buildUnitSelect(familia){
+      const sel = document.createElement('select');
+      const cxLbl = cxLabelForFamily(familia); // 'UN' para BOVINO GANCHO, senão 'CX'
+      sel.innerHTML = `<option value="KG">KG</option><option value="${cxLbl}">${cxLbl}</option>`;
+      return sel;
+    }
+
     function rowProduto(familia, produto){
       ensureEntry(familia, produto);
       const wrap = document.createElement('div'); wrap.className='row';
@@ -446,9 +447,9 @@
       function setSel(t){ selTipo=t; optR.classList.toggle('active', t==='RESFRIADO'); optC.classList.toggle('active', t==='CONGELADO'); }
       setSel('RESFRIADO'); optR.onclick=()=>setSel('RESFRIADO'); optC.onclick=()=>setSel('CONGELADO');
 
-      // unidade KG/CX (com label UN para BOVINO GANCHO nas mensagens, visual permanece KG/CX no seletor)
+      // unidade KG/CX|UN
       const unitDiv = document.createElement('div'); unitDiv.className='unit';
-      const selUnit = document.createElement('select'); selUnit.innerHTML = '<option>KG</option><option>CX</option>';
+      const selUnit = buildUnitSelect(familia);
       unitDiv.appendChild(selUnit);
 
       // peso
@@ -464,7 +465,7 @@
       const btnDel  = document.createElement('button'); btnDel.className='btn ghost';  btnDel.textContent='Excluir';
       actions.append(btnEdit, btnDel);
 
-      // feedback abaixo (único elemento, de fato no DOM)
+      // feedback abaixo
       const feedback = document.createElement('div'); feedback.className='feedback';
 
       // editor inline (4 campos absolutos)
@@ -529,7 +530,7 @@
       add.addEventListener('click', async ()=>{
         const val = parseFloat((inp.value||'').replace(',','.'));
         if(isNaN(val) || val<=0){ alert('Informe um valor válido (> 0).'); return; }
-        const unit = selUnit.value; // 'KG' | 'CX'
+        const unit = selUnit.value; // 'KG' | 'CX' | 'UN'
         const key =
           selTipo==='RESFRIADO'
             ? (unit==='KG'?'RESFRIADO_KG':'RESFRIADO_CX')
@@ -572,9 +573,9 @@
       function setSel(t){ selTipo=t; optR.classList.toggle('active', t==='RESFRIADO'); optC.classList.toggle('active', t==='CONGELADO'); }
       setSel('RESFRIADO'); optR.onclick=()=>setSel('RESFRIADO'); optC.onclick=()=>setSel('CONGELADO');
 
-      // unidade
+      // unidade KG/CX|UN
       const unitDiv = document.createElement('div'); unitDiv.className='unit';
-      const selUnit = document.createElement('select'); selUnit.innerHTML = '<option>KG</option><option>CX</option>';
+      const selUnit = buildUnitSelect(familia);
       unitDiv.appendChild(selUnit);
 
       // valor
@@ -601,7 +602,6 @@
                         : iint((store[familia][prod][key]||0) + val);
         saveStore(store);
 
-        // inserir linha visualmente
         const parent = wrap.parentElement;
         parent.insertBefore(rowProduto(familia, prod), wrap);
         renderHeaderMeta(familia);
@@ -613,9 +613,7 @@
         await window.__fb.fbAddQuantity({ family: familia, product: prod, tipo: selTipo, unit, qty: val });
       });
 
-      // ações vazias nessa linha
       const actions = document.createElement('div'); actions.className='actions';
-
       wrap.append(name, chips, unitDiv, inp, add, actions, feedback);
       return wrap;
     }
@@ -761,8 +759,7 @@
     // Bootstrap
     (async ()=>{
       await ensureLogoB64();
-      // 🔄 sincroniza do Firestore antes de desenhar
-      await syncFromFirestore();
+      await syncFromFirestore(); // sincroniza do Firestore antes de desenhar
       render();
       if('serviceWorker' in navigator){
         navigator.serviceWorker.register('./sw.js').catch(console.error);
