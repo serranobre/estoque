@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ESTOQUE — PWA</title>
+  <title>CONTROLE DE ESTOQUE SERRA NOBRE</title>
 
-  <!-- MESMOS ARQUIVOS do app de pedidos -->
+  <!-- Ícones iguais ao app de pedidos -->
   <link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="shortcut icon" href="favicon.ico" />
@@ -17,88 +17,43 @@
   <style>
     :root{
       --bg:#f7fafc; --card:#ffffff; --muted:#64748b; --ink:#0f172a; --line:#e2e8f0;
-
-      /* Paletas por família (soft/strong) */
-      --fam0-soft:#eef2ff;  --fam0-strong:#6366f1;  /* BOVINO GANCHO   */
-      --fam1-soft:#ecfeff;  --fam1-strong:#06b6d4;  /* BOVINO CORTES   */
-      --fam2-soft:#f0fdf4;  --fam2-strong:#22c55e;  /* CAIXARIAS       */
-      --fam3-soft:#fffbeb;  --fam3-strong:#f59e0b;  /* CORDEIRO        */
-      --fam4-soft:#fef2f2;  --fam4-strong:#ef4444;  /* EMBUTIDOS       */
-      --fam5-soft:#fdf4ff;  --fam5-strong:#a855f7;  /* FRANGO          */
-      --fam6-soft:#f1f5f9;  --fam6-strong:#334155;  /* MIUDOS          */
-      --fam7-soft:#fff1f2;  --fam7-strong:#f43f5e;  /* PEIXE           */
-      --fam8-soft:#f2f9f5;  --fam8-strong:#10b981;  /* QUEIJOS         */
-      --fam9-soft:#f5f3ff;  --fam9-strong:#7c3aed;  /* SUINO           */
-      --fam10-soft:#f0f9ff; --fam10-strong:#0ea5e9; /* extra           */
-      --fam11-soft:#fefce8; --fam11-strong:#eab308; /* extra           */
+      --fam0-soft:#eef2ff;  --fam0-strong:#6366f1;
+      --fam1-soft:#ecfeff;  --fam1-strong:#06b6d4;
+      --fam2-soft:#f0fdf4;  --fam2-strong:#22c55e;
+      --fam3-soft:#fffbeb;  --fam3-strong:#f59e0b;
+      --fam4-soft:#fef2f2;  --fam4-strong:#ef4444;
+      --fam5-soft:#fdf4ff;  --fam5-strong:#a855f7;
+      --fam6-soft:#f1f5f9;  --fam6-strong:#334155;
+      --fam7-soft:#fff1f2;  --fam7-strong:#f43f5e;
+      --fam8-soft:#f2f9f5;  --fam8-strong:#10b981;
+      --fam9-soft:#f5f3ff;  --fam9-strong:#7c3aed;
     }
-
     *{box-sizing:border-box}
-    body{ margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial; background:var(--bg);color:var(--ink) }
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;background:var(--bg);color:var(--ink)}
 
-    header{
-      position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--line);
-      padding:12px 16px;display:flex;gap:8px;align-items:center;z-index:5
-    }
+    header{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;gap:8px;align-items:center;z-index:5}
     header h1{font-size:18px;margin:0;letter-spacing:.5px}
     header .spacer{flex:1}
-    button,select,input{font:inherit}
     .btn{border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 14px;cursor:pointer}
-    .btn:active{transform:scale(.98)}
     .btn.primary{background:#111827;color:#fff;border-color:#111827}
-    .btn.ghost{background:transparent}
 
     .wrap{max-width:980px;margin:20px auto;padding:0 12px}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;
-          box-shadow:0 1px 0 rgba(15,23,42,.03);margin-bottom:16px;overflow:hidden}
-
-    /* Cabeçalho da família = FAIXA INTEIRA na cor forte */
-    .fam-head{
-      display:flex;align-items:center;gap:10px;padding:12px 14px;
-      color:#fff;border-bottom:1px solid var(--line);cursor:pointer
-    }
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;margin-bottom:16px;overflow:hidden}
+    .fam-head{display:flex;align-items:center;gap:10px;padding:12px 14px;color:#fff;border-bottom:1px solid var(--line)}
     .fam-title{font-weight:900;letter-spacing:.6px;font-size:18px}
     .fam-meta{margin-left:auto;font-size:12px;opacity:.9;color:#fff}
-    .fam-body{padding:0 12px 10px;display:none}
-    .fam-body.open{display:block}
+    .fam-body{padding:0 12px 10px}
 
-    .row{
-      display:grid;grid-template-columns: 1.2fr auto 0.65fr 0.6fr auto auto;
-      gap:8px;padding:10px 8px;border-bottom:1px dashed var(--line);align-items:center;font-size:16px
-    }
+    .row{display:grid;grid-template-columns: 1.2fr auto 0.7fr 0.6fr auto auto;gap:8px;padding:10px 8px;border-bottom:1px dashed var(--line);align-items:center;font-size:16px}
     .name{font-weight:700;text-transform:uppercase}
-
-    .fam-0 .fam-body .row:nth-child(even){background:var(--fam0-soft)}
-    .fam-1 .fam-body .row:nth-child(even){background:var(--fam1-soft)}
-    .fam-2 .fam-body .row:nth-child(even){background:var(--fam2-soft)}
-    .fam-3 .fam-body .row:nth-child(even){background:var(--fam3-soft)}
-    .fam-4 .fam-body .row:nth-child(even){background:var(--fam4-soft)}
-    .fam-5 .fam-body .row:nth-child(even){background:var(--fam5-soft)}
-    .fam-6 .fam-body .row:nth-child(even){background:var(--fam6-soft)}
-    .fam-7 .fam-body .row:nth-child(even){background:var(--fam7-soft)}
-    .fam-8 .fam-body .row:nth-child(even){background:var(--fam8-soft)}
-    .fam-9 .fam-body .row:nth-child(even){background:var(--fam9-soft)}
-    .fam-10 .fam-body .row:nth-child(even){background:var(--fam10-soft)}
-    .fam-11 .fam-body .row:nth-child(even){background:var(--fam11-soft)}
-
-    .chips{display:flex;gap:8px;flex-wrap:wrap}
-    .chip-opt{border:1px solid var(--line);padding:8px 12px;border-radius:999px;background:#fff;cursor:pointer;user-select:none}
-    .chip-opt.active{border-color:#111827;background:#111827;color:#fff}
-
-    .unit select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+    .chips{display:flex;gap:8px}
+    .chip-opt{border:1px solid var(--line);padding:8px 12px;border-radius:999px;background:#fff;cursor:pointer}
+    .chip-opt.active{background:#111827;color:#fff}
+    .unit select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px}
     .qty input{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px}
-
-    .actions{display:flex;gap:6px;justify-content:flex-end}
-    .actions .btn{padding:8px 10px}
-    .feedback{grid-column:1/-1;font-size:12px;color:#0f172a;padding:6px 2px 10px;min-height:18px}
-
-    .pill{background:#fff;border:1px solid var(--line);padding:6px 10px;border-radius:999px}
+    .actions{display:flex;gap:6px}
+    .feedback{grid-column:1/-1;font-size:12px;color:#0f172a;padding:6px 2px 10px}
     .divider{height:1px;background:var(--line);margin:12px 0}
-
-    .footer-actions{
-      position:sticky;bottom:0;background:linear-gradient(to top,#ffffff,#ffffffe6 70%,transparent);
-      padding:12px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:center
-    }
 
     .fam-0 .fam-head{background:var(--fam0-strong)}
     .fam-1 .fam-head{background:var(--fam1-strong)}
@@ -110,28 +65,11 @@
     .fam-7 .fam-head{background:var(--fam7-strong)}
     .fam-8 .fam-head{background:var(--fam8-strong)}
     .fam-9 .fam-head{background:var(--fam9-strong)}
-    .fam-10 .fam-head{background:var(--fam10-strong)}
-    .fam-11 .fam-head{background:var(--fam11-strong)}
-
-    @media (max-width:920px){
-      .row{grid-template-columns: 1.1fr auto 0.55fr 0.7fr auto auto}
-    }
-    @media (max-width:680px){
-      .row{grid-template-columns: 1fr auto 0.6fr 0.8fr auto auto}
-      header h1{font-size:16px}
-    }
-
-    .editor{
-      grid-column:1/-1; display:none; padding:10px; border:1px dashed var(--line); border-radius:10px; background:#fff
-    }
-    .editor.open{display:block}
-    .editor .grid{display:grid; grid-template-columns:repeat(4,1fr) auto auto; gap:8px}
-    .editor input, .editor select{width:100%; padding:10px; border:1px solid var(--line); border-radius:10px}
   </style>
 </head>
 <body>
   <header>
-    <h1>CONTROLE DE ESTOQUE</h1>
+    <h1>CONTROLE DE ESTOQUE SERRA NOBRE</h1>
     <div class="spacer"></div>
     <button class="btn" id="btnLimpar">Zerar</button>
     <button class="btn" id="btnExportar">Gerar PDF</button>
@@ -140,20 +78,14 @@
 
   <div class="wrap" id="app"></div>
 
-  <div class="footer-actions">
-    <span class="pill">Dados salvos automaticamente no dispositivo • Sincronizado no Firebase</span>
-  </div>
-
+  <!-- jsPDF -->
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
-  <!-- ===== Firebase SDK (ESM CDN) ===== -->
+  <!-- Firebase -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
     import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
-    import {
-      getFirestore, serverTimestamp, doc, runTransaction,
-      collection, addDoc, getDocs, writeBatch
-    } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+    import { getFirestore, serverTimestamp, doc, runTransaction, collection, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBqpE9QB9Xns655eh4HPhEDwIop0gCPEzI",
@@ -168,609 +100,79 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    async function ensureAuth() {
-      if (!auth.currentUser) await signInAnonymously(auth);
+    async function ensureAuth(){
+      if(!auth.currentUser) await signInAnonymously(auth);
+      return auth.currentUser?.uid||null;
     }
-    await ensureAuth();
+    window.__fbReady = ensureAuth();
 
-    const invId = (family, product) =>
-      `${family}__${product}`.toUpperCase().replace(/\s+/g,' ').trim();
+    function invId(f,p){return `${f}__${p}`.toUpperCase().trim();}
 
-    async function fbAddQuantity({ family, product, tipo, unit, qty }){
-      const id = invId(family, product);
-      const ref = doc(db, "inventory", id);
-      await runTransaction(db, async (tx)=>{
-        const snap = await tx.get(ref);
-        let data = snap.exists() ? snap.data() : {
-          family: family.toUpperCase(),
-          product: product.toUpperCase(),
-          resfriado_kg: 0, resfriado_cx: 0,
-          congelado_kg: 0, congelado_cx: 0
-        };
-        const isKg = unit === "KG";
-        const field =
-          tipo === "RESFRIADO"
-            ? (isKg ? "resfriado_kg" : "resfriado_cx")
-            : (isKg ? "congelado_kg" : "congelado_cx");
-        data[field] = +(data[field] || 0) + (isKg ? +qty : Math.round(+qty));
-        data.updated_at = serverTimestamp();
-        tx.set(ref, data, { merge: true });
+    async function fbAddQuantity({family,product,tipo,unit,qty}){
+      const id=invId(family,product); const ref=doc(db,"inventory",id);
+      await runTransaction(db,async(tx)=>{
+        const snap=await tx.get(ref);
+        let d=snap.exists()?snap.data():{family,product,resfriado_kg:0,resfriado_cx:0,resfriado_un:0,congelado_kg:0,congelado_cx:0,congelado_un:0};
+        const key=`${tipo.toLowerCase()}_${unit.toLowerCase()}`;
+        d[key]=(d[key]||0)+qty; d.updated_at=serverTimestamp();
+        tx.set(ref,d,{merge:true});
       });
-      await addDoc(collection(db, "history"), {
-        family: family.toUpperCase(),
-        product: product.toUpperCase(),
-        tipo, unit, qty: (unit==='KG'? +qty : Math.round(+qty)), action: "ADD",
-        at: serverTimestamp(), source: "pwa-estoque"
-      });
+      await addDoc(collection(db,"history"),{family,product,tipo,unit,qty,action:"ADD",at:serverTimestamp()});
     }
-
-    async function fbEditAbsolute({ family, product, resfriado_kg, resfriado_cx, congelado_kg, congelado_cx }){
-      const id = invId(family, product);
-      const ref = doc(db, "inventory", id);
-      await runTransaction(db, async (tx)=>{
-        const cur = (await tx.get(ref)).data() || {};
-        const next = {
-          ...cur,
-          family: family.toUpperCase(),
-          product: product.toUpperCase(),
-          resfriado_kg:+resfriado_kg||0, resfriado_cx:+resfriado_cx||0,
-          congelado_kg:+congelado_kg||0, congelado_cx:+congelado_cx||0,
-          updated_at: serverTimestamp()
-        };
-        tx.set(ref, next, { merge: true });
-      });
-      await addDoc(collection(db, "history"), {
-        family: family.toUpperCase(),
-        product: product.toUpperCase(),
-        action: "EDIT_ABS",
-        at: serverTimestamp(), source: "pwa-estoque"
-      });
-    }
-
-    async function fbZeroItem({ family, product }){
-      const id = invId(family, product);
-      const ref = doc(db, "inventory", id);
-      await runTransaction(db, async (tx)=>{
-        const cur = (await tx.get(ref)).data() || {};
-        const next = { ...cur, resfriado_kg:0, resfriado_cx:0, congelado_kg:0, congelado_cx:0, updated_at: serverTimestamp() };
-        tx.set(ref, next, { merge: true });
-      });
-      await addDoc(collection(db, "history"), {
-        family: family.toUpperCase(), product: product.toUpperCase(),
-        action: "ZERO", at: serverTimestamp(), source: "pwa-estoque"
-      });
-    }
-
-    // ZERA TUDO NO FIRESTORE (server-wins real)
-    async function fbZeroAllInventory(){
-      const snap = await getDocs(collection(db, "inventory"));
-      const batch = writeBatch(db);
-      snap.forEach(d=>{
-        batch.set(d.ref, {
-          resfriado_kg:0, resfriado_cx:0, congelado_kg:0, congelado_cx:0, updated_at: serverTimestamp()
-        }, { merge:true });
-      });
-      await batch.commit();
-      await addDoc(collection(db, "history"), {
-        action:"ZERO_ALL", at: serverTimestamp(), source:"pwa-estoque"
-      });
-    }
-
     async function fbFetchAllInventory(){
-      const snap = await getDocs(collection(db, "inventory"));
-      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const snap=await getDocs(collection(db,"inventory"));
+      return snap.docs.map(d=>({id:d.id,...d.data()}));
     }
-
-    window.__fb = {
-      fbAddQuantity, fbEditAbsolute, fbZeroItem, fbZeroAllInventory, fbFetchAllInventory
-    };
+    window.__fb={fbAddQuantity,fbFetchAllInventory};
   </script>
 
-  <script>
-    /* ================== LOGO base64 (Serra-Nobre_3.*) ================== */
-    const LOGO_KEY = 'estoque_logo_b64';
-    const LOGO_FILE_ORDER = ['Serra-Nobre_3.png','Serra-Nobre_3.webp','Serra-Nobre_3.jpg','Serra-Nobre_3.jpeg'];
-    let logoB64 = localStorage.getItem(LOGO_KEY) || null;
+  <!-- App -->
+  <script type="module">
+    await window.__fbReady;
 
-    async function blobToB64(blob){
-      return new Promise((resolve,reject)=>{
-        const r=new FileReader(); r.onload=()=>resolve(r.result); r.onerror=reject; r.readAsDataURL(blob);
-      });
-    }
-    async function fetchAsB64(url){
-      try{
-        const res = await fetch(url, {cache:'no-store'}); if(!res.ok) throw 0;
-        return await blobToB64(await res.blob());
-      }catch{ return null; }
-    }
-    async function ensureLogoB64(){
-      if(logoB64) return;
-      for(const f of LOGO_FILE_ORDER){
-        const b64 = await fetchAsB64(f);
-        if(b64){ logoB64 = b64; localStorage.setItem(LOGO_KEY, b64); break; }
-      }
-    }
+    const FAMILIAS=[{nome:"BOVINO GANCHO",itens:["CASADO GANCHO","DIANTEIRO GANCHO"]},{nome:"BOVINO CORTES",itens:["CARNE CABEÇA","CHULETA PRONTA"]}];
+    const STORAGE_KEY="estoque_pwa"; let store={};
+    const $=s=>document.querySelector(s); const fmt=n=>(Math.round(n*1000)/1000).toLocaleString('pt-BR',{minimumFractionDigits:3});
+    function loadStore(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY))||{}}catch{return{}}}
+    function saveStore(){localStorage.setItem(STORAGE_KEY,JSON.stringify(store))}
+    store=loadStore();
 
-    /* ================== DADOS & STORE ================== */
-    const FAMILIAS = [
-      { nome:"BOVINO GANCHO", itens:["CASADO GANCHO","DIANTEIRO GANCHO","COSTELA GANCHO","CHULETA GANCHO","COXA GANCHO"]},
-      { nome:"BOVINO CORTES", itens:["ALCATRA","CARNE CABEÇA","CHULETA PRONTA","COXÃO DURO","COXÃO MOLE","MAMINHA","RETALHO OU NABA","VAZIO"]},
-      { nome:"CAIXARIAS", itens:["CAPA DO COXÃO","COSTELA","COXAO FORA","COXAO MOLE","PATINHO","VAZIO"]},
-      { nome:"CORDEIRO", itens:["CARRÉ","COSTELA","PERNIL","PALETA","FILEZINHO"]},
-      { nome:"EMBUTIDOS", itens:["BACON FATIADO","BACON MANTA","BOLINHA BORRUSSIA","CALABRESA FATIADA","CALABRESA MIGNON","CALABRESA TORTA","FRESCAL C/ PIMENTA","FRESCAL S/ PIMENTA","JUBOIA BORRUSIA","SALAME CURTO","SALAME NORMAL","SALSICHAO BORRUSSIA","SALSICHAO COLONIAL"]},
-      { nome:"FRANGO", itens:["CORAÇÃO DE FRANGO","COXA DE FRANGO","COXA E SOBRECOXA DE FRANGO","COXA E SOBRECOXA DORSAL FRANGO","COXINHA DE FRANGO","FILE DE PEITO DE FRANGO","FRANGO INTEIRO","GALINHA VELHA","MOELA DE FRANGO","PEITO DE FRANGO COM OSSO","SOBRECOXA DE FRANGO","TULIPA DE FRANGO"]},
-      { nome:"MIUDOS", itens:["CORAÇÃO BOVINO","FIGADO BOVINO","LINGUA BOVINA","RABADA BOVINA","CORAÇÃO SUINO","ORELHA SUINA","PEZINHO SUINO","RABINHO SUINO"]},
-      { nome:"PEIXE", itens:["PANGA","PESCADO"]},
-      { nome:"QUEIJOS", itens:["QUEIJO FATIADO","QUEIJO INTEIRO","QUEIJO COLONIAL","QUEIJO COALHO PEÇA","QUEIJO COALHO PALITO"]},
-      { nome:"SUINO", itens:["CARRE SUINO","COSTELINHA SUINA","FILEZINHO SUINO","PALETA SUINA","PERNIL SUINO","SOBREPALETA SUINA"]},
-    ];
-    const PADROES = Object.fromEntries(FAMILIAS.map(f => [f.nome, new Set(f.itens)]));
-
-    const STORAGE_KEY = "estoque_pwa_v3";
-    const LAST_REPORT_KEY = "estoque_last_report_v1";
-    function loadStore(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY))||{} }catch{ return {} } }
-    function saveStore(d){ localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
-    const loadLastReport = () => { try{ return JSON.parse(localStorage.getItem(LAST_REPORT_KEY))||null }catch{ return null } };
-    const saveLastReport = (obj) => localStorage.setItem(LAST_REPORT_KEY, JSON.stringify(obj));
-
-    let store = loadStore();
-    for(const fam of FAMILIAS){
-      store[fam.nome] ??= {};
-      for(const p of fam.itens) store[fam.nome][p] ??= { RESFRIADO_KG:0, RESFRIADO_CX:0, CONGELADO_KG:0, CONGELADO_CX:0 };
-    }
-    saveStore(store);
-
-    /* ================== HELPERS ================== */
-    const $$ = s=>document.querySelector(s);
-    const fmt = n => (Math.round(n*1000)/1000).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3});
-    const round3 = n => Math.round(n*1000)/1000;
-    const iint = n => parseInt(Math.round(n||0));
-    const cxLabelForFamily = fam => fam==='BOVINO GANCHO' ? 'UN' : 'CX';
-    const pad2 = n => String(n).padStart(2,'0');
-    const dtLabel = (d=new Date()) => `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}`;
-    const dtFile  = (d=new Date()) => `${pad2(d.getDate())}-${pad2(d.getMonth()+1)}-${String(d.getFullYear()).slice(-2)}`;
-
-    function totFamilia(f){
-      let rk=0, rc=0, ck=0, cc=0;
-      Object.values(store[f]||{}).forEach(v=>{
-        rk+=v.RESFRIADO_KG||0; rc+=v.RESFRIADO_CX||0;
-        ck+=v.CONGELADO_KG||0; cc+=v.CONGELADO_CX||0;
-      });
-      return {rk:round3(rk), rc:iint(rc), ck:round3(ck), cc:iint(cc)};
-    }
-    function renderHeaderMeta(familia){
-      document.querySelectorAll('.card').forEach(section=>{
-        if(section.querySelector('.fam-title')?.textContent===familia){
-          const m=section.querySelector('.fam-meta'); const t=totFamilia(familia);
-          const cx = cxLabelForFamily(familia);
-          m.textContent = `RESF: ${fmt(t.rk)} KG / ${t.rc} ${cx} • CONG: ${fmt(t.ck)} KG / ${t.cc} ${cx}`;
-        }
-      });
+    function rowProduto(fam,prod){
+      store[fam]??={}; store[fam][prod]??={RESFRIADO:{},CONGELADO:{}};
+      const wrap=document.createElement("div"); wrap.className="row";
+      const name=document.createElement("div"); name.className="name"; name.textContent=prod;
+      const chips=document.createElement("div"); chips.className="chips";
+      let selTipo="RESFRIADO"; const optR=document.createElement("div"); optR.className="chip-opt active"; optR.textContent="RESFRIADO";
+      const optC=document.createElement("div"); optC.className="chip-opt"; optC.textContent="CONGELADO";
+      chips.append(optR,optC); optR.onclick=()=>{selTipo="RESFRIADO";optR.classList.add("active");optC.classList.remove("active")}; optC.onclick=()=>{selTipo="CONGELADO";optC.classList.add("active");optR.classList.remove("active")};
+      const unitDiv=document.createElement("div"); unitDiv.className="unit"; const sel=document.createElement("select"); sel.innerHTML="<option>KG</option><option>CX</option><option>UN</option>"; unitDiv.appendChild(sel);
+      const qty=document.createElement("div"); qty.className="qty"; const inp=document.createElement("input"); inp.type="number"; inp.step="0.001"; inp.placeholder="Qtd"; qty.appendChild(inp);
+      const add=document.createElement("button"); add.className="btn"; add.textContent="Adicionar";
+      add.onclick=async()=>{const v=parseFloat(inp.value); if(isNaN(v)||v<=0)return; const u=sel.value; store[fam][prod][selTipo][u]=(store[fam][prod][selTipo][u]||0)+v; saveStore(); await window.__fb.fbAddQuantity({family:fam,product:prod,tipo:selTipo,unit:u,qty:v}); inp.value=""}
+      wrap.append(name,chips,unitDiv,qty,add); return wrap;
     }
 
-    /* ================== SYNC (server-wins) ================== */
-    async function syncFromFirestore(){
-      if(!window.__fb?.fbFetchAllInventory) return;
-      const rows = await window.__fb.fbFetchAllInventory();
-      const next = {}; FAMILIAS.forEach(f => next[f.nome] = {});
-      for(const r of rows){
-        const fam = (r.family||'').toUpperCase();
-        const prod= (r.product||'').toUpperCase();
-        if(!fam||!prod) continue;
-        next[fam] ??= {};
-        next[fam][prod] = {
-          RESFRIADO_KG:+(r.resfriado_kg||0),
-          RESFRIADO_CX:+(r.resfriado_cx||0),
-          CONGELADO_KG:+(r.congelado_kg||0),
-          CONGELADO_CX:+(r.congelado_cx||0),
-        };
-      }
-      for(const fam of FAMILIAS){
-        for(const p of fam.itens){
-          next[fam.nome][p] ??= { RESFRIADO_KG:0, RESFRIADO_CX:0, CONGELADO_KG:0, CONGELADO_CX:0 };
-        }
-      }
-      store = next;
-      saveStore(store);
-    }
-
-    /* ================== UI ================== */
-    function buildUnitSelect(familia){
-      const sel = document.createElement('select');
-      const cxLbl = cxLabelForFamily(familia);
-      sel.innerHTML = `<option value="KG">KG</option><option value="${cxLbl}">${cxLbl}</option>`;
-      return sel;
-    }
-
-    function divider(){ const d=document.createElement('div'); d.className='divider'; return d; }
-    function ensureEntry(familia, produto){
-      store[familia] ??= {};
-      store[familia][produto] ??= { RESFRIADO_KG:0, RESFRIADO_CX:0, CONGELADO_KG:0, CONGELADO_CX:0 };
-    }
-
-    function rowProduto(familia, produto){
-      ensureEntry(familia, produto);
-      const wrap = document.createElement('div'); wrap.className='row';
-
-      const name = document.createElement('div'); name.className='name'; name.textContent=produto;
-
-      const chips = document.createElement('div'); chips.className='chips';
-      const optR = document.createElement('div'); optR.className='chip-opt'; optR.textContent='RESFRIADO';
-      const optC = document.createElement('div'); optC.className='chip-opt'; optC.textContent='CONGELADO';
-      chips.append(optR,optC);
-      let selTipo='RESFRIADO';
-      function setSel(t){ selTipo=t; optR.classList.toggle('active', t==='RESFRIADO'); optC.classList.toggle('active', t==='CONGELADO'); }
-      setSel('RESFRIADO'); optR.onclick=()=>setSel('RESFRIADO'); optC.onclick=()=>setSel('CONGELADO');
-
-      const unitDiv = document.createElement('div'); unitDiv.className='unit';
-      const selUnit = buildUnitSelect(familia);
-      unitDiv.appendChild(selUnit);
-
-      const qty = document.createElement('div'); qty.className='qty';
-      const inp = document.createElement('input'); inp.type='number'; inp.step='0.001'; inp.min='0'; inp.placeholder='Peso/Qtde';
-
-      const add = document.createElement('button'); add.className='btn'; add.textContent='Adicionar';
-
-      const actions = document.createElement('div'); actions.className='actions';
-      const btnEdit = document.createElement('button'); btnEdit.className='btn ghost'; btnEdit.textContent='Editar';
-      const btnDel  = document.createElement('button'); btnDel.className='btn ghost';  btnDel.textContent='Excluir';
-      actions.append(btnEdit, btnDel);
-
-      const feedback = document.createElement('div'); feedback.className='feedback';
-
-      const editor = document.createElement('div'); editor.className='editor';
-      const grid = document.createElement('div'); grid.className='grid';
-      const inRK = document.createElement('input'); inRK.type='number'; inRK.step='0.001'; inRK.min='0'; inRK.placeholder='RESFRIADO KG';
-      const inRC = document.createElement('input'); inRC.type='number'; inRC.step='1';     inRC.min='0'; inRC.placeholder=`RESFRIADO ${cxLabelForFamily(familia)}`;
-      const inCK = document.createElement('input'); inCK.type='number'; inCK.step='0.001'; inCK.min='0'; inCK.placeholder='CONGELADO KG';
-      const inCC = document.createElement('input'); inCC.type='number'; inCC.step='1';     inCC.min='0'; inCC.placeholder=`CONGELADO ${cxLabelForFamily(familia)}`;
-      const bSalvar = document.createElement('button'); bSalvar.className='btn primary'; bSalvar.textContent='Salvar';
-      const bCancel = document.createElement('button'); bCancel.className='btn'; bCancel.textContent='Cancelar';
-      grid.append(inRK,inRC,inCK,inCC,bSalvar,bCancel);
-      editor.appendChild(grid);
-
-      function openEditor(){
-        const v = store[familia][produto];
-        inRK.value=v.RESFRIADO_KG; inRC.value=iint(v.RESFRIADO_CX);
-        inCK.value=v.CONGELADO_KG; inCC.value=iint(v.CONGELADO_CX);
-        editor.classList.add('open');
-      }
-      function closeEditor(){ editor.classList.remove('open'); }
-      btnEdit.addEventListener('click', openEditor);
-      bCancel.addEventListener('click', closeEditor);
-
-      bSalvar.addEventListener('click', async ()=>{
-        const nrk=+((inRK.value||'0').replace(',','.'));
-        const nrc=iint(inRC.value||'0');
-        const nck=+((inCK.value||'0').replace(',','.'));
-        const ncc=iint(inCC.value||'0');
-        if([nrk,nrc,nck,ncc].some(x=>isNaN(x)||x<0)){ alert('Valores inválidos.'); return; }
-        store[familia][produto]={ RESFRIADO_KG:round3(nrk), RESFRIADO_CX:nrc, CONGELADO_KG:round3(nck), CONGELADO_CX:ncc };
-        saveStore(store);
-        renderHeaderMeta(familia);
-        const cx = cxLabelForFamily(familia);
-        feedback.textContent = `Atualizado: RESF ${fmt(nrk)} KG / ${nrc} ${cx} • CONG ${fmt(nck)} KG / ${ncc} ${cx}`;
-        closeEditor();
-        await window.__fb.fbEditAbsolute({
-          family: familia, product: produto,
-          resfriado_kg:nrk, resfriado_cx:nrc, congelado_kg:nck, congelado_cx:ncc
-        });
-      });
-
-      btnDel.addEventListener('click', async ()=>{
-        const isPadrao = PADROES[familia]?.has(produto);
-        if(isPadrao){
-          if(confirm('Item padrão. Deseja zerar os totais?')){
-            store[familia][produto]={ RESFRIADO_KG:0, RESFRIADO_CX:0, CONGELADO_KG:0, CONGELADO_CX:0 };
-            saveStore(store); renderHeaderMeta(familia);
-            feedback.textContent='Totais zerados.';
-            await window.__fb.fbZeroItem({ family: familia, product: produto });
-          }
-        } else {
-          if(confirm('Remover este item personalizado da lista?')){
-            delete store[familia][produto]; saveStore(store);
-            wrap.remove(); renderHeaderMeta(familia);
-          }
-        }
-      });
-
-      add.addEventListener('click', async ()=>{
-        const val = parseFloat((inp.value||'').replace(',','.'));
-        if(isNaN(val) || val<=0){ alert('Informe um valor válido (> 0).'); return; }
-        const unit = selUnit.value; // KG | CX | UN (UN mapeia para CX no armazenamento)
-        const key =
-          selTipo==='RESFRIADO'
-            ? (unit==='KG'?'RESFRIADO_KG':'RESFRIADO_CX')
-            : (unit==='KG'?'CONGELADO_KG':'CONGELADO_CX');
-
-        store[familia][produto][key] =
-          (unit==='KG') ? round3((store[familia][produto][key]||0) + val)
-                        : iint((store[familia][produto][key]||0) + val);
-        saveStore(store);
-        renderHeaderMeta(familia);
-
-        const cx = cxLabelForFamily(familia);
-        const v = store[familia][produto];
-        feedback.textContent =
-          `Adicionado: ${unit==='KG'? fmt(val)+' KG' : iint(val)+' '+cx} • ${selTipo}. `
-          + `Totais — RESF ${fmt(v.RESFRIADO_KG)} KG / ${iint(v.RESFRIADO_CX)} ${cx} `
-          + `• CONG ${fmt(v.CONGELADO_KG)} KG / ${iint(v.CONGELADO_CX)} ${cx}`;
-
-        inp.value='';
-
-        await window.__fb.fbAddQuantity({ family: familia, product: produto, tipo: selTipo, unit, qty: val });
-      });
-
-      qty.appendChild(inp);
-      wrap.append(name, chips, unitDiv, qty, add, actions, feedback, editor);
-      return wrap;
-    }
-
-    function rowNovoProduto(familia){
-      const wrap = document.createElement('div'); wrap.className='row';
-      const name = document.createElement('input'); name.placeholder='Novo produto (CAIXA ALTA)'; name.style.textTransform='uppercase';
-
-      const chips = document.createElement('div'); chips.className='chips';
-      const optR = document.createElement('div'); optR.className='chip-opt'; optR.textContent='RESFRIADO';
-      const optC = document.createElement('div'); optC.className='chip-opt'; optC.textContent='CONGELADO';
-      chips.append(optR,optC);
-      let selTipo='RESFRIADO';
-      function setSel(t){ selTipo=t; optR.classList.toggle('active', t==='RESFRIADO'); optC.classList.toggle('active', t==='CONGELADO'); }
-      setSel('RESFRIADO'); optR.onclick=()=>setSel('RESFRIADO'); optC.onclick=()=>setSel('CONGELADO');
-
-      const unitDiv = document.createElement('div'); unitDiv.className='unit';
-      const selUnit = buildUnitSelect(familia);
-      unitDiv.appendChild(selUnit);
-
-      const inp = document.createElement('input'); inp.type='number'; inp.step='0.001'; inp.min='0'; inp.placeholder='Peso/Qtde';
-
-      const add = document.createElement('button'); add.className='btn'; add.textContent='Adicionar';
-      const feedback = document.createElement('div'); feedback.className='feedback';
-
-      add.addEventListener('click', async ()=>{
-        const prod = (name.value||'').trim().toUpperCase();
-        const val  = parseFloat((inp.value||'').replace(',','.'));
-        const unit = selUnit.value;
-        if(!prod){ alert('Digite o nome do produto.'); return; }
-        if(isNaN(val)||val<=0){ alert('Informe um valor válido (> 0).'); return; }
-
-        ensureEntry(familia, prod);
-        const key =
-          selTipo==='RESFRIADO'
-            ? (unit==='KG'?'RESFRIADO_KG':'RESFRIADO_CX')
-            : (unit==='KG'?'CONGELADO_KG':'CONGELADO_CX');
-
-        store[familia][prod][key] =
-          (unit==='KG') ? round3((store[familia][prod][key]||0) + val)
-                        : iint((store[familia][prod][key]||0) + val);
-        saveStore(store);
-
-        const parent = wrap.parentElement;
-        parent.insertBefore(rowProduto(familia, prod), wrap);
-        renderHeaderMeta(familia);
-
-        const cx = cxLabelForFamily(familia);
-        feedback.textContent = `Adicionado: ${unit==='KG'? fmt(val)+' KG' : iint(val)+' '+cx} • ${selTipo} em ${prod}`;
-        name.value=''; inp.value='';
-
-        await window.__fb.fbAddQuantity({ family: familia, product: prod, tipo: selTipo, unit, qty: val });
-      });
-
-      const actions = document.createElement('div'); actions.className='actions';
-      wrap.append(name, chips, unitDiv, inp, add, actions, feedback);
-      return wrap;
-    }
-
-    function render(){
-      const app = $$('#app'); app.innerHTML='';
-      FAMILIAS.forEach((fam, idx)=>{
-        const card = document.createElement('section'); card.className=`card fam-${idx}`;
-        const head = document.createElement('div'); head.className='fam-head';
-        const title = document.createElement('div'); title.className='fam-title'; title.textContent=fam.nome;
-        const meta = document.createElement('div'); meta.className='fam-meta';
-        const t = totFamilia(fam.nome);
-        const cx = cxLabelForFamily(fam.nome);
-        meta.textContent = `RESF: ${fmt(t.rk)} KG / ${t.rc} ${cx} • CONG: ${fmt(t.ck)} KG / ${t.cc} ${cx}`;
-        head.append(title, meta);
-        const body = document.createElement('div'); body.className='fam-body open';
-        head.addEventListener('click',()=>body.classList.toggle('open'));
-
-        const itensFamilia = Object.keys(store[fam.nome]||{});
-        const ordenados = [...new Set([...fam.itens, ...itensFamilia])];
-        ordenados.forEach(prod => body.appendChild(rowProduto(fam.nome, prod)));
-
-        body.appendChild(divider());
-        body.appendChild(rowNovoProduto(fam.nome));
-        card.append(head, body); app.appendChild(card);
-      });
-    }
-
-    /* ================== PDF com colunas NOVAS ================== */
-    const PALETAS = [
-      {soft:'#eef2ff', strong:'#6366f1'},
-      {soft:'#ecfeff', strong:'#06b6d4'},
-      {soft:'#f0fdf4', strong:'#22c55e'},
-      {soft:'#fffbeb', strong:'#f59e0b'},
-      {soft:'#fef2f2', strong:'#ef4444'},
-      {soft:'#fdf4ff', strong:'#a855f7'},
-      {soft:'#f1f5f9', strong:'#334155'},
-      {soft:'#fff1f2', strong:'#f43f5e'},
-      {soft:'#f2f9f5', strong:'#10b981'},
-      {soft:'#f5f3ff', strong:'#7c3aed'},
-      {soft:'#f0f9ff', strong:'#0ea5e9'},
-      {soft:'#fefce8', strong:'#eab308'},
-    ];
-    const hex2rgb = (hex)=>{ const h=hex.replace('#',''); return {r:parseInt(h.slice(0,2),16), g:parseInt(h.slice(2,4),16), b:parseInt(h.slice(4,6),16)}; };
-
-    function buildSnapshot(){
-      const snap = {};
-      for(const fam of FAMILIAS){
-        snap[fam.nome] = {};
-        for(const [p,v] of Object.entries(store[fam.nome]||{})){
-          snap[fam.nome][p] = {
-            SUM_KG: round3((v.RESFRIADO_KG||0)+(v.CONGELADO_KG||0)),
-            SUM_CX: iint((v.RESFRIADO_CX||0)+(v.CONGELADO_CX||0)),
-            RESF_KG: v.RESFRIADO_KG||0, RESF_CX: v.RESFRIADO_CX||0,
-            CONG_KG: v.CONGELADO_KG||0, CONG_CX: v.CONGELADO_CX||0
-          };
-        }
-      }
-      return snap;
-    }
+    function render(){const app=$("#app");app.innerHTML="";FAMILIAS.forEach((f,i)=>{const card=document.createElement("section");card.className=`card fam-${i}`;const head=document.createElement("div");head.className="fam-head";head.innerHTML=`<div class="fam-title">${f.nome}</div>`;const body=document.createElement("div");body.className="fam-body";f.itens.forEach(p=>body.appendChild(rowProduto(f.nome,p)));card.append(head,body);app.appendChild(card)})}
+    render();
 
     async function gerarPDF(){
-      const last = loadLastReport(); // pega o ANTERIOR (se existir)
-      const lastLabel = last?.dateLabel || 'ANTERIOR';
-
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ unit:'pt', format:'a4' });
-      const W = doc.internal.pageSize.getWidth();
-      const margin = 36;
-      let y = margin;
-
-      // Cabeçalho
-      if(logoB64){
-        const isJPEG = logoB64.startsWith('data:image/jpeg') || logoB64.startsWith('data:image/jpg');
-        doc.addImage(logoB64, isJPEG?'JPEG':'PNG', margin, y-10, 64, 64);
-      }
-      doc.setFont('helvetica','bold'); doc.setFontSize(16);
-      doc.text('ESTOQUE DO DIA', W/2, y+8, {align:'center'});
-      doc.setFont('helvetica','normal'); doc.setFontSize(10);
-      doc.text(new Date().toLocaleString('pt-BR'), W/2, y+24, {align:'center'});
-      y += 44;
-
-      // Stops das colunas (direita para esquerda, cabendo na página)
-      const X_SUM  = W - margin;        // SOMA ESTOQUE
-      const X_CONG = X_SUM - 120;       // CONG
-      const X_RESF = X_CONG - 120;      // RESF
-      const X_PREV = X_RESF - 120;      // ANTERIOR
-      // Produto ocupa o resto à esquerda
-
-      for(let i=0;i<FAMILIAS.length;i++){
-        const fam = FAMILIAS[i].nome;
-        const itens = Object.keys(store[fam]||{}).filter(p=>{
-          const v = store[fam][p];
-          return (v.RESFRIADO_KG||0) > 0 || (v.RESFRIADO_CX||0) > 0 ||
-                 (v.CONGELADO_KG||0) > 0 || (v.CONGELADO_CX||0) > 0;
-        });
-        if(itens.length===0) continue;
-
-        if(y > 740){ doc.addPage(); y = margin; }
-
-        const soft = hex2rgb(PALETAS[i%PALETAS.length].soft);
-        const strong = hex2rgb(PALETAS[i%PALETAS.length].strong);
-        doc.setFillColor(soft.r,soft.g,soft.b);
-        doc.rect(margin, y, W - margin*2, 24, 'F');
-        doc.setTextColor(strong.r,strong.g,strong.b);
-        doc.setFont('helvetica','bold'); doc.setFontSize(18);
-        doc.text(fam, W/2, y+16, {align:'center'});
-        doc.setTextColor(0,0,0);
-
-        y += 40;
-
-        const cxLbl = cxLabelForFamily(fam);
-        doc.setFont('helvetica','bold'); doc.setFontSize(10);
-        doc.text('PRODUTO', margin, y);
-        doc.text(`${lastLabel} CONTAGEM`, X_PREV, y, {align:'right'});
-        doc.text(`RESFRIADO (KG / ${cxLbl})`, X_RESF, y, {align:'right'});
-        doc.text(`CONGELADO (KG / ${cxLbl})`, X_CONG, y, {align:'right'});
-        doc.text(`SOMA ESTOQUE (KG / ${cxLbl})`, X_SUM, y, {align:'right'});
-        y += 10; doc.line(margin, y, W - margin, y); y += 10;
-
-        doc.setFont('helvetica','normal'); doc.setFontSize(9);
-        let rk=0, rc=0, ck=0, cc=0;
-        let rowIndex = 0;
-        for(const p of itens.sort()){
-          const v = store[fam][p];
-          const prev = last?.snapshot?.[fam]?.[p] || {SUM_KG:0,SUM_CX:0};
-          const sumKg = round3((v.RESFRIADO_KG||0)+(v.CONGELADO_KG||0));
-          const sumCx = iint((v.RESFRIADO_CX||0)+(v.CONGELADO_CX||0));
-
-          if(y > 780){ doc.addPage(); y = margin; rowIndex=0; }
-
-          if(rowIndex % 2 === 1){
-            doc.setFillColor(240,240,240);
-            doc.rect(margin, y-10, W - margin*2, 16, 'F');
-          }
-
-          doc.text(p, margin, y);
-          doc.text(`${fmt(prev.SUM_KG)} / ${iint(prev.SUM_CX)}`, X_PREV, y, {align:'right'});
-          doc.text(`${fmt(v.RESFRIADO_KG||0)} / ${iint(v.RESFRIADO_CX||0)}`, X_RESF, y, {align:'right'});
-          doc.text(`${fmt(v.CONGELADO_KG||0)} / ${iint(v.CONGELADO_CX||0)}`, X_CONG, y, {align:'right'});
-          doc.text(`${fmt(sumKg)} / ${sumCx}`, X_SUM, y, {align:'right'});
-
-          y += 16; rowIndex++;
-          rk+=v.RESFRIADO_KG||0; rc+=iint(v.RESFRIADO_CX||0); ck+=v.CONGELADO_KG||0; cc+=iint(v.CONGELADO_CX||0);
-        }
-
-        y += 2; doc.setFont('helvetica','bold'); doc.setFontSize(10);
-        doc.text('TOTAL', margin, y);
-        doc.text(`${fmt(round3(rk+ck))} / ${iint(rc+cc)}`, X_SUM, y, {align:'right'});
-        doc.text(`${fmt(rk)} / ${rc}`, X_RESF, y, {align:'right'});
-        doc.text(`${fmt(ck)} / ${cc}`, X_CONG, y, {align:'right'});
-        // coluna anterior não tem total agregado; opcionalmente poderíamos somar se quiser
-        doc.setFont('helvetica','normal'); doc.setFontSize(9);
-        y += 14;
-      }
-
-      return doc.output('blob');
+      const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:"pt",format:"a4"});
+      const W=doc.internal.pageSize.getWidth();let y=40;
+      if(logoB64){const isJPEG=logoB64.startsWith("data:image/jpeg");doc.addImage(logoB64,isJPEG?"JPEG":"PNG",40,y,64*3,64*3);}
+      doc.setFontSize(16);doc.text("ESTOQUE DO DIA",W/2,y,{align:"center"});
+      y+=100;
+      FAMILIAS.forEach(f=>{y+=20;doc.setFontSize(14);doc.text(f.nome,W/2,y,{align:"center"});y+=20;doc.setFontSize(10);
+        doc.text("PRODUTO",40,y);doc.text("ANTERIOR\nCONTAGEM",150,y);doc.text("RESFRIADO\n(KG/CX/UN)",300,y);doc.text("CONGELADO\n(KG/CX/UN)",450,y);doc.text("SOMA\nESTOQUE",600,y);y+=30;
+        Object.keys(store[f.nome]||{}).forEach(p=>{doc.text(p,40,y);y+=20;});
+      });
+      return doc.output("blob");
     }
 
-    async function abrirPDFEmAba(blob){
-      const url = URL.createObjectURL(blob);
-      window.open(url, '_blank');
-      setTimeout(()=>URL.revokeObjectURL(url), 60000);
-    }
-
-    async function acaoGerarOuCompartilhar(doShare){
-      await ensureLogoB64();
-      // gera PDF usando o último relatório salvo (anterior)
-      const blob = await gerarPDF();
-      // salva o snapshot ATUAL como "último" para o PRÓXIMO relatório
-      const now = new Date();
-      saveLastReport({ dateISO: now.toISOString(), dateLabel: dtLabel(now), snapshot: buildSnapshot() });
-
-      await abrirPDFEmAba(blob);
-      const fname = `ESTOQUE ${dtFile(new Date())}.pdf`; // ESTOQUE DD-MM-AA
-      if(doShare){
-        const file = new File([blob], fname, {type:'application/pdf'});
-        if(navigator.canShare && navigator.canShare({files:[file]})){
-          try{ await navigator.share({ files:[file], title:'Estoque', text:'Relatório de estoque' }); }catch(e){}
-        }
-      }
-    }
-
-    document.getElementById('btnExportar').addEventListener('click', ()=>acaoGerarOuCompartilhar(false));
-    document.getElementById('btnCompartilhar').addEventListener('click', ()=>acaoGerarOuCompartilhar(true));
-
-    // ZERAR — agora 100% (Firestore + local) e sincroniza de volta
-    document.getElementById('btnLimpar').addEventListener('click', async ()=>{
-      if(confirm('Zerar todo o estoque (servidor e dispositivo)?')){
-        try{
-          await window.__fb.fbZeroAllInventory(); // zera tudo no Firestore
-        }catch(e){ console.warn('Falha ao zerar no Firestore:', e); }
-        // zera local
-        for(const fam of FAMILIAS){
-          for(const p of Object.keys(store[fam.nome]||{})){
-            store[fam.nome][p]={ RESFRIADO_KG:0, RESFRIADO_CX:0, CONGELADO_KG:0, CONGELADO_CX:0 };
-          }
-        }
-        saveStore(store);
-        await syncFromFirestore(); // confirma server-wins zerado
-        render();
-        alert('Estoque zerado.');
-      }
-    });
-
-    // Bootstrap
-    (async ()=>{
-      await ensureLogoB64();
-      await syncFromFirestore();
-      render();
-      if('serviceWorker' in navigator){
-        navigator.serviceWorker.register('./sw.js').catch(console.error);
-      }
-    })();
+    let logoB64=null;async function ensureLogoB64(){if(logoB64)return;try{const r=await fetch("Serra-Nobre_3.png");logoB64=await r.blob().then(b=>new Promise(res=>{const fr=new FileReader();fr.onload=()=>res(fr.result);fr.readAsDataURL(b);}));}catch{}}
+    async function abrirPDFEmAba(b){const u=URL.createObjectURL(b);window.open(u,"_blank");setTimeout(()=>URL.revokeObjectURL(u),6e4)}
+    $("#btnExportar").onclick=async()=>{await ensureLogoB64();const b=await gerarPDF();abrirPDFEmAba(b);}
+    $("#btnCompartilhar").onclick=async()=>{await ensureLogoB64();const b=await gerarPDF();abrirPDFEmAba(b);}
+    $("#btnLimpar").onclick=()=>{if(confirm("Zerar?")){store={};saveStore();render();}}
   </script>
 </body>
 </html>
