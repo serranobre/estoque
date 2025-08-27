@@ -62,14 +62,12 @@
     .fam-body{padding:0 12px 10px;display:none}
     .fam-body.open{display:block}
 
-    /* Linhas de item (fonte base 16px); título da família +2 => 18px */
     .row{
-      display:grid;grid-template-columns: 1.2fr auto 0.65fr 0.6fr auto auto; /* nome | chips | unidade | peso | adicionar | ações */
+      display:grid;grid-template-columns: 1.2fr auto 0.65fr 0.6fr auto auto;
       gap:8px;padding:10px 8px;border-bottom:1px dashed var(--line);align-items:center;font-size:16px
     }
     .name{font-weight:700;text-transform:uppercase}
 
-    /* Alternância: usa o TOM SUAVE da própria família */
     .fam-0 .fam-body .row:nth-child(even){background:var(--fam0-soft)}
     .fam-1 .fam-body .row:nth-child(even){background:var(--fam1-soft)}
     .fam-2 .fam-body .row:nth-child(even){background:var(--fam2-soft)}
@@ -102,7 +100,6 @@
       padding:12px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:center
     }
 
-    /* Aplicar cor forte no cabeçalho por família */
     .fam-0 .fam-head{background:var(--fam0-strong)}
     .fam-1 .fam-head{background:var(--fam1-strong)}
     .fam-2 .fam-head{background:var(--fam2-strong)}
@@ -124,7 +121,6 @@
       header h1{font-size:16px}
     }
 
-    /* Editor inline */
     .editor{
       grid-column:1/-1; display:none; padding:10px; border:1px dashed var(--line); border-radius:10px; background:#fff
     }
@@ -148,17 +144,15 @@
     <span class="pill">Dados salvos automaticamente no dispositivo • Sincronizado no Firebase</span>
   </div>
 
-  <!-- jsPDF -->
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
-  <!-- ===== Firebase SDK (ESM CDN) + Helpers expostos em window.__fb ===== -->
+  <!-- ===== Firebase SDK (ESM CDN) ===== -->
   <script type="module">
-    // Firebase SDK v12.1.0 (CDN ESM)
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
     import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
     import {
       getFirestore, serverTimestamp, doc, runTransaction,
-      collection, addDoc, getDocs
+      collection, addDoc, getDocs, writeBatch
     } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -170,27 +164,18 @@
       appId: "1:513208551190:web:4c7165b7887290193a7237"
     };
 
-    // Init
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // Login anônimo
     async function ensureAuth() {
-      try {
-        if (!auth.currentUser) await signInAnonymously(auth);
-        return auth.currentUser?.uid || null;
-      } catch (e) {
-        console.error("Auth anônimo falhou:", e);
-        throw new Error("AUTH_ERROR");
-      }
+      if (!auth.currentUser) await signInAnonymously(auth);
     }
     await ensureAuth();
 
     const invId = (family, product) =>
       `${family}__${product}`.toUpperCase().replace(/\s+/g,' ').trim();
 
-    // ====== Operações de estoque (write-through) ======
     async function fbAddQuantity({ family, product, tipo, unit, qty }){
       const id = invId(family, product);
       const ref = doc(db, "inventory", id);
@@ -207,7 +192,6 @@
           tipo === "RESFRIADO"
             ? (isKg ? "resfriado_kg" : "resfriado_cx")
             : (isKg ? "congelado_kg" : "congelado_cx");
-        // UN cai no mesmo campo de CX
         data[field] = +(data[field] || 0) + (isKg ? +qty : Math.round(+qty));
         data.updated_at = serverTimestamp();
         tx.set(ref, data, { merge: true });
@@ -257,22 +241,28 @@
       });
     }
 
-    async function fbLogDeleteCustom({ family, product }){
+    // ZERA TUDO NO FIRESTORE (server-wins real)
+    async function fbZeroAllInventory(){
+      const snap = await getDocs(collection(db, "inventory"));
+      const batch = writeBatch(db);
+      snap.forEach(d=>{
+        batch.set(d.ref, {
+          resfriado_kg:0, resfriado_cx:0, congelado_kg:0, congelado_cx:0, updated_at: serverTimestamp()
+        }, { merge:true });
+      });
+      await batch.commit();
       await addDoc(collection(db, "history"), {
-        family: family.toUpperCase(), product: product.toUpperCase(),
-        action: "DELETE_CUSTOM", at: serverTimestamp(), source: "pwa-estoque"
+        action:"ZERO_ALL", at: serverTimestamp(), source:"pwa-estoque"
       });
     }
 
-    // ====== Leitura (sync) ======
     async function fbFetchAllInventory(){
       const snap = await getDocs(collection(db, "inventory"));
       return snap.docs.map(d => ({ id: d.id, ...d.data() }));
     }
 
-    // expõe para o script principal
     window.__fb = {
-      fbAddQuantity, fbEditAbsolute, fbZeroItem, fbLogDeleteCustom, fbFetchAllInventory
+      fbAddQuantity, fbEditAbsolute, fbZeroItem, fbZeroAllInventory, fbFetchAllInventory
     };
   </script>
 
@@ -316,10 +306,13 @@
     ];
     const PADROES = Object.fromEntries(FAMILIAS.map(f => [f.nome, new Set(f.itens)]));
 
-    // store com quatro campos por produto
     const STORAGE_KEY = "estoque_pwa_v3";
+    const LAST_REPORT_KEY = "estoque_last_report_v1";
     function loadStore(){ try{ return JSON.parse(localStorage.getItem(STORAGE_KEY))||{} }catch{ return {} } }
     function saveStore(d){ localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
+    const loadLastReport = () => { try{ return JSON.parse(localStorage.getItem(LAST_REPORT_KEY))||null }catch{ return null } };
+    const saveLastReport = (obj) => localStorage.setItem(LAST_REPORT_KEY, JSON.stringify(obj));
+
     let store = loadStore();
     for(const fam of FAMILIAS){
       store[fam.nome] ??= {};
@@ -331,8 +324,11 @@
     const $$ = s=>document.querySelector(s);
     const fmt = n => (Math.round(n*1000)/1000).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3});
     const round3 = n => Math.round(n*1000)/1000;
-    const iint = n => parseInt(Math.round(n||0)); // inteiro para CX/UN
+    const iint = n => parseInt(Math.round(n||0));
     const cxLabelForFamily = fam => fam==='BOVINO GANCHO' ? 'UN' : 'CX';
+    const pad2 = n => String(n).padStart(2,'0');
+    const dtLabel = (d=new Date()) => `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}`;
+    const dtFile  = (d=new Date()) => `${pad2(d.getDate())}-${pad2(d.getMonth()+1)}-${String(d.getFullYear()).slice(-2)}`;
 
     function totFamilia(f){
       let rk=0, rc=0, ck=0, cc=0;
@@ -352,93 +348,52 @@
       });
     }
 
-    /* ================== SYNC (server-wins com backoff simples) ================== */
+    /* ================== SYNC (server-wins) ================== */
     async function syncFromFirestore(){
       if(!window.__fb?.fbFetchAllInventory) return;
-      let delay = 500;
-      for(let attempt=1; attempt<=3; attempt++){
-        try{
-          const rows = await window.__fb.fbFetchAllInventory();
-          if(!Array.isArray(rows)) throw new Error('resposta inválida');
-          const next = {};
-          FAMILIAS.forEach(f => next[f.nome] = {});
-          for(const r of rows){
-            const fam = (r.family||'').toUpperCase();
-            const prod= (r.product||'').toUpperCase();
-            if(!fam||!prod) continue;
-            next[fam] ??= {};
-            next[fam][prod] = {
-              RESFRIADO_KG:+(r.resfriado_kg||0),
-              RESFRIADO_CX:+(r.resfriado_cx||0),
-              CONGELADO_KG:+(r.congelado_kg||0),
-              CONGELADO_CX:+(r.congelado_cx||0),
-            };
-          }
-          for(const fam of FAMILIAS){
-            for(const p of fam.itens){
-              next[fam.nome][p] ??= { RESFRIADO_KG:0, RESFRIADO_CX:0, CONGELADO_KG:0, CONGELADO_CX:0 };
-            }
-          }
-          store = next;
-          saveStore(store);
-          console.info('Sync OK — itens:', rows.length);
-          return;
-        }catch(e){
-          console.warn(`Sync tentativa ${attempt} falhou:`, e);
-          if(attempt<3) await new Promise(r=>setTimeout(r, delay));
-          delay *= 2;
+      const rows = await window.__fb.fbFetchAllInventory();
+      const next = {}; FAMILIAS.forEach(f => next[f.nome] = {});
+      for(const r of rows){
+        const fam = (r.family||'').toUpperCase();
+        const prod= (r.product||'').toUpperCase();
+        if(!fam||!prod) continue;
+        next[fam] ??= {};
+        next[fam][prod] = {
+          RESFRIADO_KG:+(r.resfriado_kg||0),
+          RESFRIADO_CX:+(r.resfriado_cx||0),
+          CONGELADO_KG:+(r.congelado_kg||0),
+          CONGELADO_CX:+(r.congelado_cx||0),
+        };
+      }
+      for(const fam of FAMILIAS){
+        for(const p of fam.itens){
+          next[fam.nome][p] ??= { RESFRIADO_KG:0, RESFRIADO_CX:0, CONGELADO_KG:0, CONGELADO_CX:0 };
         }
       }
-      console.error('Sync falhou — usando dados locais.');
+      store = next;
+      saveStore(store);
     }
 
     /* ================== UI ================== */
-    function render(){
-      const app = $$('#app'); app.innerHTML='';
-      FAMILIAS.forEach((fam, idx)=>{
-        const card = document.createElement('section'); card.className=`card fam-${idx}`;
-        const head = document.createElement('div'); head.className='fam-head';
-        const title = document.createElement('div'); title.className='fam-title'; title.textContent=fam.nome;
-        const meta = document.createElement('div'); meta.className='fam-meta';
-        const t = totFamilia(fam.nome);
-        const cx = cxLabelForFamily(fam.nome);
-        meta.textContent = `RESF: ${fmt(t.rk)} KG / ${t.rc} ${cx} • CONG: ${fmt(t.ck)} KG / ${t.cc} ${cx}`;
-        head.append(title, meta);
-        const body = document.createElement('div'); body.className='fam-body open';
-        head.addEventListener('click',()=>body.classList.toggle('open'));
-
-        const itensFamilia = Object.keys(store[fam.nome]||{});
-        const ordenados = [...new Set([...fam.itens, ...itensFamilia])];
-        ordenados.forEach(prod => body.appendChild(rowProduto(fam.nome, prod)));
-
-        body.appendChild(divider());
-        body.appendChild(rowNovoProduto(fam.nome));
-
-        card.append(head, body); app.appendChild(card);
-      });
+    function buildUnitSelect(familia){
+      const sel = document.createElement('select');
+      const cxLbl = cxLabelForFamily(familia);
+      sel.innerHTML = `<option value="KG">KG</option><option value="${cxLbl}">${cxLbl}</option>`;
+      return sel;
     }
-    function divider(){ const d=document.createElement('div'); d.className='divider'; return d; }
 
+    function divider(){ const d=document.createElement('div'); d.className='divider'; return d; }
     function ensureEntry(familia, produto){
       store[familia] ??= {};
       store[familia][produto] ??= { RESFRIADO_KG:0, RESFRIADO_CX:0, CONGELADO_KG:0, CONGELADO_CX:0 };
-    }
-
-    function buildUnitSelect(familia){
-      const sel = document.createElement('select');
-      const cxLbl = cxLabelForFamily(familia); // 'UN' para BOVINO GANCHO, senão 'CX'
-      sel.innerHTML = `<option value="KG">KG</option><option value="${cxLbl}">${cxLbl}</option>`;
-      return sel;
     }
 
     function rowProduto(familia, produto){
       ensureEntry(familia, produto);
       const wrap = document.createElement('div'); wrap.className='row';
 
-      // nome
       const name = document.createElement('div'); name.className='name'; name.textContent=produto;
 
-      // chips tipo
       const chips = document.createElement('div'); chips.className='chips';
       const optR = document.createElement('div'); optR.className='chip-opt'; optR.textContent='RESFRIADO';
       const optC = document.createElement('div'); optC.className='chip-opt'; optC.textContent='CONGELADO';
@@ -447,28 +402,22 @@
       function setSel(t){ selTipo=t; optR.classList.toggle('active', t==='RESFRIADO'); optC.classList.toggle('active', t==='CONGELADO'); }
       setSel('RESFRIADO'); optR.onclick=()=>setSel('RESFRIADO'); optC.onclick=()=>setSel('CONGELADO');
 
-      // unidade KG/CX|UN
       const unitDiv = document.createElement('div'); unitDiv.className='unit';
       const selUnit = buildUnitSelect(familia);
       unitDiv.appendChild(selUnit);
 
-      // peso
       const qty = document.createElement('div'); qty.className='qty';
       const inp = document.createElement('input'); inp.type='number'; inp.step='0.001'; inp.min='0'; inp.placeholder='Peso/Qtde';
 
-      // adicionar
       const add = document.createElement('button'); add.className='btn'; add.textContent='Adicionar';
 
-      // ações: Editar / Excluir
       const actions = document.createElement('div'); actions.className='actions';
       const btnEdit = document.createElement('button'); btnEdit.className='btn ghost'; btnEdit.textContent='Editar';
       const btnDel  = document.createElement('button'); btnDel.className='btn ghost';  btnDel.textContent='Excluir';
       actions.append(btnEdit, btnDel);
 
-      // feedback abaixo
       const feedback = document.createElement('div'); feedback.className='feedback';
 
-      // editor inline (4 campos absolutos)
       const editor = document.createElement('div'); editor.className='editor';
       const grid = document.createElement('div'); grid.className='grid';
       const inRK = document.createElement('input'); inRK.type='number'; inRK.step='0.001'; inRK.min='0'; inRK.placeholder='RESFRIADO KG';
@@ -487,7 +436,6 @@
         editor.classList.add('open');
       }
       function closeEditor(){ editor.classList.remove('open'); }
-
       btnEdit.addEventListener('click', openEditor);
       bCancel.addEventListener('click', closeEditor);
 
@@ -522,7 +470,6 @@
           if(confirm('Remover este item personalizado da lista?')){
             delete store[familia][produto]; saveStore(store);
             wrap.remove(); renderHeaderMeta(familia);
-            await window.__fb.fbLogDeleteCustom({ family: familia, product: produto });
           }
         }
       });
@@ -530,7 +477,7 @@
       add.addEventListener('click', async ()=>{
         const val = parseFloat((inp.value||'').replace(',','.'));
         if(isNaN(val) || val<=0){ alert('Informe um valor válido (> 0).'); return; }
-        const unit = selUnit.value; // 'KG' | 'CX' | 'UN'
+        const unit = selUnit.value; // KG | CX | UN (UN mapeia para CX no armazenamento)
         const key =
           selTipo==='RESFRIADO'
             ? (unit==='KG'?'RESFRIADO_KG':'RESFRIADO_CX')
@@ -555,7 +502,6 @@
       });
 
       qty.appendChild(inp);
-
       wrap.append(name, chips, unitDiv, qty, add, actions, feedback, editor);
       return wrap;
     }
@@ -564,7 +510,6 @@
       const wrap = document.createElement('div'); wrap.className='row';
       const name = document.createElement('input'); name.placeholder='Novo produto (CAIXA ALTA)'; name.style.textTransform='uppercase';
 
-      // chips tipo
       const chips = document.createElement('div'); chips.className='chips';
       const optR = document.createElement('div'); optR.className='chip-opt'; optR.textContent='RESFRIADO';
       const optC = document.createElement('div'); optC.className='chip-opt'; optC.textContent='CONGELADO';
@@ -573,12 +518,10 @@
       function setSel(t){ selTipo=t; optR.classList.toggle('active', t==='RESFRIADO'); optC.classList.toggle('active', t==='CONGELADO'); }
       setSel('RESFRIADO'); optR.onclick=()=>setSel('RESFRIADO'); optC.onclick=()=>setSel('CONGELADO');
 
-      // unidade KG/CX|UN
       const unitDiv = document.createElement('div'); unitDiv.className='unit';
       const selUnit = buildUnitSelect(familia);
       unitDiv.appendChild(selUnit);
 
-      // valor
       const inp = document.createElement('input'); inp.type='number'; inp.step='0.001'; inp.min='0'; inp.placeholder='Peso/Qtde';
 
       const add = document.createElement('button'); add.className='btn'; add.textContent='Adicionar';
@@ -618,7 +561,31 @@
       return wrap;
     }
 
-    /* ================== PDF ================== */
+    function render(){
+      const app = $$('#app'); app.innerHTML='';
+      FAMILIAS.forEach((fam, idx)=>{
+        const card = document.createElement('section'); card.className=`card fam-${idx}`;
+        const head = document.createElement('div'); head.className='fam-head';
+        const title = document.createElement('div'); title.className='fam-title'; title.textContent=fam.nome;
+        const meta = document.createElement('div'); meta.className='fam-meta';
+        const t = totFamilia(fam.nome);
+        const cx = cxLabelForFamily(fam.nome);
+        meta.textContent = `RESF: ${fmt(t.rk)} KG / ${t.rc} ${cx} • CONG: ${fmt(t.ck)} KG / ${t.cc} ${cx}`;
+        head.append(title, meta);
+        const body = document.createElement('div'); body.className='fam-body open';
+        head.addEventListener('click',()=>body.classList.toggle('open'));
+
+        const itensFamilia = Object.keys(store[fam.nome]||{});
+        const ordenados = [...new Set([...fam.itens, ...itensFamilia])];
+        ordenados.forEach(prod => body.appendChild(rowProduto(fam.nome, prod)));
+
+        body.appendChild(divider());
+        body.appendChild(rowNovoProduto(fam.nome));
+        card.append(head, body); app.appendChild(card);
+      });
+    }
+
+    /* ================== PDF com colunas NOVAS ================== */
     const PALETAS = [
       {soft:'#eef2ff', strong:'#6366f1'},
       {soft:'#ecfeff', strong:'#06b6d4'},
@@ -633,15 +600,30 @@
       {soft:'#f0f9ff', strong:'#0ea5e9'},
       {soft:'#fefce8', strong:'#eab308'},
     ];
-    function hex2rgb(hex){
-      const h = hex.replace('#','');
-      return { r:parseInt(h.slice(0,2),16), g:parseInt(h.slice(2,4),16), b:parseInt(h.slice(4,6),16) };
+    const hex2rgb = (hex)=>{ const h=hex.replace('#',''); return {r:parseInt(h.slice(0,2),16), g:parseInt(h.slice(2,4),16), b:parseInt(h.slice(4,6),16)}; };
+
+    function buildSnapshot(){
+      const snap = {};
+      for(const fam of FAMILIAS){
+        snap[fam.nome] = {};
+        for(const [p,v] of Object.entries(store[fam.nome]||{})){
+          snap[fam.nome][p] = {
+            SUM_KG: round3((v.RESFRIADO_KG||0)+(v.CONGELADO_KG||0)),
+            SUM_CX: iint((v.RESFRIADO_CX||0)+(v.CONGELADO_CX||0)),
+            RESF_KG: v.RESFRIADO_KG||0, RESF_CX: v.RESFRIADO_CX||0,
+            CONG_KG: v.CONGELADO_KG||0, CONG_CX: v.CONGELADO_CX||0
+          };
+        }
+      }
+      return snap;
     }
 
     async function gerarPDF(){
+      const last = loadLastReport(); // pega o ANTERIOR (se existir)
+      const lastLabel = last?.dateLabel || 'ANTERIOR';
+
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF({ unit:'pt', format:'a4' });
-
       const W = doc.internal.pageSize.getWidth();
       const margin = 36;
       let y = margin;
@@ -649,14 +631,20 @@
       // Cabeçalho
       if(logoB64){
         const isJPEG = logoB64.startsWith('data:image/jpeg') || logoB64.startsWith('data:image/jpg');
-        const imgType = isJPEG ? 'JPEG' : 'PNG';
-        doc.addImage(logoB64, imgType, margin, y-10, 64, 64);
+        doc.addImage(logoB64, isJPEG?'JPEG':'PNG', margin, y-10, 64, 64);
       }
       doc.setFont('helvetica','bold'); doc.setFontSize(16);
       doc.text('ESTOQUE DO DIA', W/2, y+8, {align:'center'});
       doc.setFont('helvetica','normal'); doc.setFontSize(10);
       doc.text(new Date().toLocaleString('pt-BR'), W/2, y+24, {align:'center'});
-      y += 44; // espaço antes da tabela
+      y += 44;
+
+      // Stops das colunas (direita para esquerda, cabendo na página)
+      const X_SUM  = W - margin;        // SOMA ESTOQUE
+      const X_CONG = X_SUM - 120;       // CONG
+      const X_RESF = X_CONG - 120;      // RESF
+      const X_PREV = X_RESF - 120;      // ANTERIOR
+      // Produto ocupa o resto à esquerda
 
       for(let i=0;i<FAMILIAS.length;i++){
         const fam = FAMILIAS[i].nome;
@@ -680,12 +668,13 @@
 
         y += 40;
 
-        // Cabeçalho da tabela
         const cxLbl = cxLabelForFamily(fam);
         doc.setFont('helvetica','bold'); doc.setFontSize(10);
         doc.text('PRODUTO', margin, y);
-        doc.text(`RESFRIADO (KG / ${cxLbl})`, margin+350, y, {align:'right'});
-        doc.text(`CONGELADO (KG / ${cxLbl})`, margin+540, y, {align:'right'});
+        doc.text(`${lastLabel} CONTAGEM`, X_PREV, y, {align:'right'});
+        doc.text(`RESFRIADO (KG / ${cxLbl})`, X_RESF, y, {align:'right'});
+        doc.text(`CONGELADO (KG / ${cxLbl})`, X_CONG, y, {align:'right'});
+        doc.text(`SOMA ESTOQUE (KG / ${cxLbl})`, X_SUM, y, {align:'right'});
         y += 10; doc.line(margin, y, W - margin, y); y += 10;
 
         doc.setFont('helvetica','normal'); doc.setFontSize(9);
@@ -693,6 +682,10 @@
         let rowIndex = 0;
         for(const p of itens.sort()){
           const v = store[fam][p];
+          const prev = last?.snapshot?.[fam]?.[p] || {SUM_KG:0,SUM_CX:0};
+          const sumKg = round3((v.RESFRIADO_KG||0)+(v.CONGELADO_KG||0));
+          const sumCx = iint((v.RESFRIADO_CX||0)+(v.CONGELADO_CX||0));
+
           if(y > 780){ doc.addPage(); y = margin; rowIndex=0; }
 
           if(rowIndex % 2 === 1){
@@ -701,8 +694,10 @@
           }
 
           doc.text(p, margin, y);
-          doc.text(`${fmt(v.RESFRIADO_KG)} / ${iint(v.RESFRIADO_CX)}`, margin+540-190, y, {align:'right'});
-          doc.text(`${fmt(v.CONGELADO_KG)} / ${iint(v.CONGELADO_CX)}`, margin+540, y, {align:'right'});
+          doc.text(`${fmt(prev.SUM_KG)} / ${iint(prev.SUM_CX)}`, X_PREV, y, {align:'right'});
+          doc.text(`${fmt(v.RESFRIADO_KG||0)} / ${iint(v.RESFRIADO_CX||0)}`, X_RESF, y, {align:'right'});
+          doc.text(`${fmt(v.CONGELADO_KG||0)} / ${iint(v.CONGELADO_CX||0)}`, X_CONG, y, {align:'right'});
+          doc.text(`${fmt(sumKg)} / ${sumCx}`, X_SUM, y, {align:'right'});
 
           y += 16; rowIndex++;
           rk+=v.RESFRIADO_KG||0; rc+=iint(v.RESFRIADO_CX||0); ck+=v.CONGELADO_KG||0; cc+=iint(v.CONGELADO_CX||0);
@@ -710,8 +705,10 @@
 
         y += 2; doc.setFont('helvetica','bold'); doc.setFontSize(10);
         doc.text('TOTAL', margin, y);
-        doc.text(`${fmt(rk)} / ${rc}`, margin+540-190, y, {align:'right'});
-        doc.text(`${fmt(ck)} / ${cc}`, margin+540, y, {align:'right'});
+        doc.text(`${fmt(round3(rk+ck))} / ${iint(rc+cc)}`, X_SUM, y, {align:'right'});
+        doc.text(`${fmt(rk)} / ${rc}`, X_RESF, y, {align:'right'});
+        doc.text(`${fmt(ck)} / ${cc}`, X_CONG, y, {align:'right'});
+        // coluna anterior não tem total agregado; opcionalmente poderíamos somar se quiser
         doc.setFont('helvetica','normal'); doc.setFontSize(9);
         y += 14;
       }
@@ -725,41 +722,50 @@
       setTimeout(()=>URL.revokeObjectURL(url), 60000);
     }
 
-    async function acaoGerar(){
+    async function acaoGerarOuCompartilhar(doShare){
       await ensureLogoB64();
+      // gera PDF usando o último relatório salvo (anterior)
       const blob = await gerarPDF();
-      await abrirPDFEmAba(blob);
-    }
+      // salva o snapshot ATUAL como "último" para o PRÓXIMO relatório
+      const now = new Date();
+      saveLastReport({ dateISO: now.toISOString(), dateLabel: dtLabel(now), snapshot: buildSnapshot() });
 
-    async function acaoCompartilhar(){
-      await ensureLogoB64();
-      const blob = await gerarPDF();
       await abrirPDFEmAba(blob);
-      const file = new File([blob], `ESTOQUE_${new Date().toISOString().slice(0,10)}.pdf`, {type:'application/pdf'});
-      if(navigator.canShare && navigator.canShare({files:[file]})){
-        try{ await navigator.share({ files:[file], title:'Estoque', text:'Relatório de estoque' }); }catch(e){}
+      const fname = `ESTOQUE ${dtFile(new Date())}.pdf`; // ESTOQUE DD-MM-AA
+      if(doShare){
+        const file = new File([blob], fname, {type:'application/pdf'});
+        if(navigator.canShare && navigator.canShare({files:[file]})){
+          try{ await navigator.share({ files:[file], title:'Estoque', text:'Relatório de estoque' }); }catch(e){}
+        }
       }
     }
 
-    // Zerar tudo
+    document.getElementById('btnExportar').addEventListener('click', ()=>acaoGerarOuCompartilhar(false));
+    document.getElementById('btnCompartilhar').addEventListener('click', ()=>acaoGerarOuCompartilhar(true));
+
+    // ZERAR — agora 100% (Firestore + local) e sincroniza de volta
     document.getElementById('btnLimpar').addEventListener('click', async ()=>{
-      if(confirm('Zerar todo o estoque?')){
+      if(confirm('Zerar todo o estoque (servidor e dispositivo)?')){
+        try{
+          await window.__fb.fbZeroAllInventory(); // zera tudo no Firestore
+        }catch(e){ console.warn('Falha ao zerar no Firestore:', e); }
+        // zera local
         for(const fam of FAMILIAS){
           for(const p of Object.keys(store[fam.nome]||{})){
             store[fam.nome][p]={ RESFRIADO_KG:0, RESFRIADO_CX:0, CONGELADO_KG:0, CONGELADO_CX:0 };
-            await window.__fb.fbZeroItem({ family:fam.nome, product:p });
           }
         }
-        saveStore(store); render();
+        saveStore(store);
+        await syncFromFirestore(); // confirma server-wins zerado
+        render();
+        alert('Estoque zerado.');
       }
     });
-    document.getElementById('btnExportar').addEventListener('click', acaoGerar);
-    document.getElementById('btnCompartilhar').addEventListener('click', acaoCompartilhar);
 
     // Bootstrap
     (async ()=>{
       await ensureLogoB64();
-      await syncFromFirestore(); // sincroniza do Firestore antes de desenhar
+      await syncFromFirestore();
       render();
       if('serviceWorker' in navigator){
         navigator.serviceWorker.register('./sw.js').catch(console.error);
