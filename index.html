@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>CONTROLE DE ESTOQUE SERRA NOBRE</title>
 
-  <!-- Mesmos assets do app de pedidos -->
+  <!-- mesmos assets do app de pedidos -->
   <link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96" />
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="shortcut icon" href="favicon.ico" />
@@ -17,27 +17,21 @@
   <style>
     :root{
       --bg:#f7fafc; --card:#ffffff; --muted:#64748b; --ink:#0f172a; --line:#e2e8f0;
-
-      /* Paletas por família (soft/strong) */
-      --fam0-soft:#eef2ff;  --fam0-strong:#6366f1;  /* BOVINO GANCHO   */
-      --fam1-soft:#ecfeff;  --fam1-strong:#06b6d4;  /* BOVINO CORTES   */
-      --fam2-soft:#f0fdf4;  --fam2-strong:#22c55e;  /* CAIXARIAS       */
-      --fam3-soft:#fffbeb;  --fam3-strong:#f59e0b;  /* CORDEIRO        */
-      --fam4-soft:#fef2f2;  --fam4-strong:#ef4444;  /* EMBUTIDOS       */
-      --fam5-soft:#fdf4ff;  --fam5-strong:#a855f7;  /* FRANGO          */
-      --fam6-soft:#f1f5f9;  --fam6-strong:#334155;  /* MIUDOS          */
-      --fam7-soft:#fff1f2;  --fam7-strong:#f43f5e;  /* PEIXE           */
-      --fam8-soft:#f2f9f5;  --fam8-strong:#10b981;  /* QUEIJOS         */
-      --fam9-soft:#f5f3ff;  --fam9-strong:#7c3aed;  /* SUINO           */
+      --fam0-soft:#eef2ff;  --fam0-strong:#6366f1;
+      --fam1-soft:#ecfeff;  --fam1-strong:#06b6d4;
+      --fam2-soft:#f0fdf4;  --fam2-strong:#22c55e;
+      --fam3-soft:#fffbeb;  --fam3-strong:#f59e0b;
+      --fam4-soft:#fef2f2;  --fam4-strong:#ef4444;
+      --fam5-soft:#fdf4ff;  --fam5-strong:#a855f7;
+      --fam6-soft:#f1f5f9;  --fam6-strong:#334155;
+      --fam7-soft:#fff1f2;  --fam7-strong:#f43f5e;
+      --fam8-soft:#f2f9f5;  --fam8-strong:#10b981;
+      --fam9-soft:#f5f3ff;  --fam9-strong:#7c3aed;
     }
-
     *{box-sizing:border-box}
-    body{ margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;background:var(--bg);color:var(--ink) }
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Arial;background:var(--bg);color:var(--ink)}
 
-    header{
-      position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--line);
-      padding:12px 16px;display:flex;gap:8px;align-items:center;z-index:5;flex-wrap:wrap
-    }
+    header{position:sticky;top:0;background:var(--card);border-bottom:1px solid var(--line);padding:12px 16px;display:flex;gap:8px;align-items:center;z-index:5;flex-wrap:wrap}
     header h1{font-size:18px;margin:0;letter-spacing:.4px}
     header .spacer{flex:1}
     .btn{border:1px solid var(--line);background:#fff;border-radius:12px;padding:10px 14px;cursor:pointer}
@@ -56,14 +50,12 @@
     .chips{display:flex;gap:8px;flex-wrap:wrap}
     .chip-opt{border:1px solid var(--line);padding:8px 12px;border-radius:999px;background:#fff;cursor:pointer;user-select:none}
     .chip-opt.active{border-color:#111827;background:#111827;color:#fff}
-
     .unit select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff}
     .qty input{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px}
     .actions{display:flex;gap:6px}
     .feedback{grid-column:1/-1;font-size:12px;color:#0f172a;padding:6px 2px 10px;min-height:18px}
     .divider{height:1px;background:var(--line);margin:12px 0}
 
-    /* Cores de cada família */
     .fam-0 .fam-head{background:var(--fam0-strong)} .fam-0 .fam-body .row:nth-child(even){background:var(--fam0-soft)}
     .fam-1 .fam-head{background:var(--fam1-strong)} .fam-1 .fam-body .row:nth-child(even){background:var(--fam1-soft)}
     .fam-2 .fam-head{background:var(--fam2-strong)} .fam-2 .fam-body .row:nth-child(even){background:var(--fam2-soft)}
@@ -112,83 +104,65 @@
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    async function ensureAuth(){
-      if(!auth.currentUser) await signInAnonymously(auth);
-    }
+    async function ensureAuth(){ if(!auth.currentUser) await signInAnonymously(auth); }
     window.__fbReady = ensureAuth();
 
-    const invId = (family, product) =>
-      `${family}__${product}`.toUpperCase().replace(/\s+/g,' ').trim();
+    const invId = (family, product) => `${family}__${product}`.toUpperCase().replace(/\s+/g,' ').trim();
 
     async function fbAddQuantity({ family, product, tipo, unit, qty }){
+      // se qty = 0, ainda gravamos histórico, mas não alteramos agregado
       const id = invId(family, product);
       const ref = doc(db, "inventory", id);
-      await runTransaction(db, async (tx)=>{
-        const snap = await tx.get(ref);
-        let data = snap.exists() ? snap.data() : {
-          family: family.toUpperCase(),
-          product: product.toUpperCase(),
-          resfriado_kg: 0, resfriado_cx: 0, resfriado_un:0,
-          congelado_kg: 0, congelado_cx: 0, congelado_un:0
-        };
-        const field = `${tipo.toLowerCase()}_${unit.toLowerCase()}`; // resfriado_kg | resfriado_cx | ...
-        data[field] = +(data[field] || 0) + (unit === 'KG' ? +qty : Math.round(+qty));
-        data.updated_at = serverTimestamp();
-        tx.set(ref, data, { merge: true });
-      });
-      await addDoc(collection(db, "history"), {
-        family: family.toUpperCase(),
-        product: product.toUpperCase(),
-        tipo, unit, qty, action: "ADD", at: serverTimestamp(), source:"pwa-estoque"
-      });
+      if(qty !== 0){
+        await runTransaction(db, async (tx)=>{
+          const snap = await tx.get(ref);
+          let d = snap.exists() ? snap.data() : {
+            family: family.toUpperCase(),
+            product: product.toUpperCase(),
+            resfriado_kg:0,resfriado_cx:0,resfriado_un:0,
+            congelado_kg:0,congelado_cx:0,congelado_un:0
+          };
+          const field = `${tipo.toLowerCase()}_${unit.toLowerCase()}`;
+          d[field] = +(d[field]||0) + (unit==='KG'?+qty:Math.round(+qty));
+          d.updated_at = serverTimestamp();
+          tx.set(ref,d,{merge:true});
+        });
+      }
+      await addDoc(collection(db,"history"),{family,product,tipo,unit,qty,action:"ADD",at:serverTimestamp(),source:"pwa-estoque"});
     }
 
     async function fbZeroAllInventory(){
       const snap = await getDocs(collection(db, "inventory"));
       const batch = writeBatch(db);
-      snap.forEach(d=>{
-        batch.set(d.ref, {
-          resfriado_kg:0,resfriado_cx:0,resfriado_un:0,
-          congelado_kg:0,congelado_cx:0,congelado_un:0, updated_at: serverTimestamp()
-        }, {merge:true});
-      });
+      snap.forEach(d=>batch.set(d.ref,{
+        resfriado_kg:0,resfriado_cx:0,resfriado_un:0,
+        congelado_kg:0,congelado_cx:0,congelado_un:0,updated_at:serverTimestamp()
+      },{merge:true}));
       await batch.commit();
       await addDoc(collection(db,"history"),{action:"ZERO_ALL",at:serverTimestamp(),source:"pwa-estoque"});
     }
 
     async function fbFetchAllInventory(){
-      const snap = await getDocs(collection(db, "inventory"));
-      return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const snap = await getDocs(collection(db,"inventory"));
+      return snap.docs.map(d=>({id:d.id,...d.data()}));
     }
 
     window.__fb = { fbAddQuantity, fbZeroAllInventory, fbFetchAllInventory };
   </script>
 
-  <!-- App principal (módulo) -->
+  <!-- App principal -->
   <script type="module">
     await window.__fbReady;
 
-    /* ===== LOGO base64 (Serra-Nobre_3.*) ===== */
-    const LOGO_KEY = 'estoque_logo_b64';
-    const LOGO_FILE_ORDER = ['Serra-Nobre_3.png','Serra-Nobre_3.webp','Serra-Nobre_3.jpg','Serra-Nobre_3.jpeg'];
-    let logoB64 = localStorage.getItem(LOGO_KEY) || null;
+    /* ====== LOGO base64 ====== */
+    const LOGO_KEY='estoque_logo_b64';
+    const LOGO_FILE_ORDER=['Serra-Nobre_3.png','Serra-Nobre_3.webp','Serra-Nobre_3.jpg','Serra-Nobre_3.jpeg'];
+    let logoB64 = localStorage.getItem(LOGO_KEY)||null;
+    const blobToB64 = (blob)=>new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(blob);});
+    async function ensureLogoB64(){ if(logoB64) return logoB64; for(const f of LOGO_FILE_ORDER){ try{const r=await fetch(f,{cache:'no-store'}); if(r.ok){logoB64=await blobToB64(await r.blob()); localStorage.setItem(LOGO_KEY,logoB64); break;}}catch{} } return logoB64; }
+    async function measureImage(b64){ return new Promise((resolve,reject)=>{ if(!b64) return resolve({w:0,h:0}); const i=new Image(); i.onload=()=>resolve({w:i.naturalWidth,h:i.naturalHeight}); i.onerror=reject; i.src=b64; }); }
 
-    const blobToB64 = (blob) => new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(blob); });
-    async function ensureLogoB64(){
-      if(logoB64) return logoB64;
-      for(const f of LOGO_FILE_ORDER){
-        try{ const r=await fetch(f,{cache:'no-store'}); if(r.ok){ logoB64=await blobToB64(await r.blob()); localStorage.setItem(LOGO_KEY,logoB64); break; } }catch{}
-      }
-      return logoB64;
-    }
-    async function measureImage(b64){
-      return new Promise((resolve,reject)=>{
-        if(!b64) return resolve({w:0,h:0});
-        const img=new Image(); img.onload=()=>resolve({w:img.naturalWidth,h:img.naturalHeight}); img.onerror=reject; img.src=b64;
-      });
-    }
-
-    /* ===== Dados ===== */
+    /* ====== Dados ====== */
     const FAMILIAS = [
       { nome:"BOVINO GANCHO", itens:["CASADO GANCHO","DIANTEIRO GANCHO","COSTELA GANCHO","CHULETA GANCHO","COXA GANCHO"]},
       { nome:"BOVINO CORTES", itens:["ALCATRA","CARNE CABEÇA","CHULETA PRONTA","COXÃO DURO","COXÃO MOLE","MAMINHA","RETALHO OU NABA","VAZIO"]},
@@ -201,178 +175,167 @@
       { nome:"QUEIJOS", itens:["QUEIJO FATIADO","QUEIJO INTEIRO","QUEIJO COLONIAL","QUEIJO COALHO PEÇA","QUEIJO COALHO PALITO"]},
       { nome:"SUINO", itens:["CARRE SUINO","COSTELINHA SUINA","FILEZINHO SUINO","PALETA SUINA","PERNIL SUINO","SOBREPALETA SUINA"]},
     ];
-    const PADROES = Object.fromEntries(FAMILIAS.map(f => [f.nome, new Set(f.itens)]));
+    const PADROES = Object.fromEntries(FAMILIAS.map(f=>[f.nome,new Set(f.itens)]));
 
-    const STORAGE_KEY = "estoque_pwa_v6";
-    const LAST_REPORT_KEY = "estoque_last_report_v1";
-    const FAMILY_UNIT_KEY = "estoque_family_unit_v1"; // { fam: "CX"|"UN" }
+    const STORAGE_KEY="estoque_pwa_v7";
+    const LAST_REPORT_KEY="estoque_last_report_v2";
+    const FAMILY_UNIT_KEY="estoque_family_unit_v2"; // { fam: 'CX'|'UN' }
 
-    const $ = (s)=>document.querySelector(s);
-    const fmt = (n)=> (Math.round(n*1000)/1000).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3});
-    const round3 = (n)=> Math.round(n*1000)/1000;
-    const iint = (n)=> parseInt(Math.round(+n||0));
-    const pad2 = (n)=> String(n).padStart(2,'0');
-    const dtLabel = (d=new Date()) => `${pad2(d.getDate())}/${pad2(d.getMonth()+1)}`;
-    const dtFile  = (d=new Date()) => `${pad2(d.getDate())}-${pad2(d.getMonth()+1)}-${String(d.getFullYear()).slice(-2)}`;
+    const $=s=>document.querySelector(s);
+    const fmt=n=>(Math.round(n*1000)/1000).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3});
+    const round3=n=>Math.round(n*1000)/1000;
+    const iint=n=>parseInt(Math.round(+n||0));
+    const pad2=n=>String(n).padStart(2,'0');
+    const dtLabel=(d=new Date())=>`${pad2(d.getDate())}/${pad2(d.getMonth()+1)}`;
+    const dtFile =(d=new Date())=>`${pad2(d.getDate())}-${pad2(d.getMonth()+1)}-${String(d.getFullYear()).slice(-2)}`;
+    const loadJSON=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))??f}catch{return f}};
+    const saveJSON=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
 
-    function loadJSON(key, fallback){ try{ return JSON.parse(localStorage.getItem(key)) ?? fallback }catch{ return fallback } }
-    function saveJSON(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
-
-    let store = loadJSON(STORAGE_KEY, {});
+    let store = loadJSON(STORAGE_KEY,{});
     for(const fam of FAMILIAS){
       store[fam.nome] ??= {};
-      for(const p of fam.itens) store[fam.nome][p] ??= { RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0} };
+      for(const p of fam.itens){
+        store[fam.nome][p] ??= { RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0}, MOSTRAR_NO_RELATORIO:false };
+      }
     }
-    saveJSON(STORAGE_KEY, store);
+    saveJSON(STORAGE_KEY,store);
 
-    let familyUnit = loadJSON(FAMILY_UNIT_KEY, {});
+    let familyUnit = loadJSON(FAMILY_UNIT_KEY,{});
     for(const fam of FAMILIAS){ familyUnit[fam.nome] ??= 'CX'; }
-    saveJSON(FAMILY_UNIT_KEY, familyUnit);
+    saveJSON(FAMILY_UNIT_KEY,familyUnit);
 
-    function unitForFamily(fam){ return familyUnit[fam] || 'CX'; }
+    const unitForFamily=f=>familyUnit[f]||'CX';
+
+    function ensureEntry(familia,produto){
+      store[familia] ??= {};
+      store[familia][produto] ??= { RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0}, MOSTRAR_NO_RELATORIO:false };
+    }
 
     function totFamilia(f){
-      let rk=0, rc=0, ck=0, cc=0;
+      let rk=0, ru=0, ck=0, cu=0, U=unitForFamily(f);
       Object.values(store[f]||{}).forEach(v=>{
-        rk+=+v.RESFRIADO.KG||0; rc+=iint(+v.RESFRIADO[unitForFamily(f)]||0);
-        ck+=+v.CONGELADO.KG||0; cc+=iint(+v.CONGELADO[unitForFamily(f)]||0);
+        rk+=+v.RESFRIADO.KG||0; ru+=iint(+v.RESFRIADO[U]||0);
+        ck+=+v.CONGELADO.KG||0; cu+=iint(+v.CONGELADO[U]||0);
       });
-      return {rk:round3(rk), rc:iint(rc), ck:round3(ck), cc:iint(cc)};
+      return {rk:round3(rk), ru:iint(ru), ck:round3(ck), cu:iint(cu)};
     }
-    function renderHeaderMeta(familia){
-      document.querySelectorAll('.card').forEach(section=>{
-        if(section.querySelector('.fam-title')?.textContent===familia){
-          const m=section.querySelector('.fam-meta'); const t=totFamilia(familia); const u=unitForFamily(familia);
-          m.textContent = `RESF: ${fmt(t.rk)} KG / ${t.rc} ${u} • CONG: ${fmt(t.ck)} KG / ${t.cc} ${u}`;
+    function renderHeaderMeta(f){
+      document.querySelectorAll('.card').forEach(sec=>{
+        if(sec.querySelector('.fam-title')?.textContent===f){
+          const t=totFamilia(f), U=unitForFamily(f);
+          sec.querySelector('.fam-meta').textContent=`RESF: ${fmt(t.rk)} KG / ${t.ru} ${U} • CONG: ${fmt(t.ck)} KG / ${t.cu} ${U}`;
         }
       });
     }
 
-    function ensureEntry(familia, produto){
-      store[familia] ??= {};
-      store[familia][produto] ??= { RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0} };
-    }
+    function buildUnitSelect(){ const s=document.createElement('select'); s.innerHTML=`<option>KG</option><option>CX</option><option>UN</option>`; return s; }
 
-    function buildUnitSelectAll(){
-      const sel=document.createElement('select');
-      sel.innerHTML=`<option>KG</option><option>CX</option><option>UN</option>`;
-      return sel;
-    }
-
-    function rowProduto(familia, produto){
-      ensureEntry(familia, produto);
+    function rowProduto(fam,prod){
+      ensureEntry(fam,prod);
       const wrap=document.createElement('div'); wrap.className='row';
-
-      const name=document.createElement('div'); name.className='name'; name.textContent=produto;
+      const name=document.createElement('div'); name.className='name'; name.textContent=prod;
 
       const chips=document.createElement('div'); chips.className='chips';
-      const optR=document.createElement('div'); optR.className='chip-opt active'; optR.textContent='RESFRIADO';
-      const optC=document.createElement('div'); optC.className='chip-opt'; optC.textContent='CONGELADO';
-      chips.append(optR,optC);
-      let selTipo='RESFRIADO';
-      optR.onclick=()=>{selTipo='RESFRIADO';optR.classList.add('active');optC.classList.remove('active')};
-      optC.onclick=()=>{selTipo='CONGELADO';optC.classList.add('active');optR.classList.remove('active')};
+      const cR=document.createElement('div'); cR.className='chip-opt active'; cR.textContent='RESFRIADO';
+      const cC=document.createElement('div'); cC.className='chip-opt'; cC.textContent='CONGELADO';
+      chips.append(cR,cC); let tipo='RESFRIADO';
+      cR.onclick=()=>{tipo='RESFRIADO';cR.classList.add('active');cC.classList.remove('active')};
+      cC.onclick=()=>{tipo='CONGELADO';cC.classList.add('active');cR.classList.remove('active')};
 
-      const unitDiv=document.createElement('div'); unitDiv.className='unit';
-      const sel=buildUnitSelectAll(); unitDiv.appendChild(sel);
-
-      const qty=document.createElement('div'); qty.className='qty';
-      const inp=document.createElement('input'); inp.type='number'; inp.step='0.001'; inp.min='0'; inp.placeholder='Qtd'; qty.appendChild(inp);
-
+      const unit=document.createElement('div'); unit.className='unit'; const sel=buildUnitSelect(); unit.appendChild(sel);
+      const qty=document.createElement('div'); qty.className='qty'; const inp=document.createElement('input'); inp.type='number'; inp.step='0.001'; inp.min='0'; inp.placeholder='Qtd'; qty.appendChild(inp);
       const add=document.createElement('button'); add.className='btn'; add.textContent='Adicionar';
-
       const actions=document.createElement('div'); actions.className='actions';
       const btnEdit=document.createElement('button'); btnEdit.className='btn'; btnEdit.textContent='Editar';
       const btnDel=document.createElement('button'); btnDel.className='btn'; btnDel.textContent='Excluir';
       actions.append(btnEdit,btnDel);
-
-      const feedback=document.createElement('div'); feedback.className='feedback';
+      const fb=document.createElement('div'); fb.className='feedback';
 
       add.onclick=async ()=>{
-        const v=parseFloat((inp.value||'').replace(',','.'));
-        if(isNaN(v)||v<=0){ alert('Informe um valor válido.'); return; }
-        const u=sel.value; // KG | CX | UN
-        const tgt = store[familia][produto][selTipo];
-        tgt[u] = (u==='KG') ? round3((tgt[u]||0)+v) : iint((tgt[u]||0)+v);
-        saveJSON(STORAGE_KEY, store);
-        renderHeaderMeta(familia);
-        feedback.textContent = `+ ${u==='KG'?fmt(v)+' KG':iint(v)+' '+u} • ${selTipo}. `
-          + `RESF ${fmt(store[familia][produto].RESFRIADO.KG)} KG / ${store[familia][produto].RESFRIADO[unitForFamily(familia)]||0} ${unitForFamily(familia)} • `
-          + `CONG ${fmt(store[familia][produto].CONGELADO.KG)} KG / ${store[familia][produto].CONGELADO[unitForFamily(familia)]||0} ${unitForFamily(familia)}`;
+        const valStr=(inp.value||'').replace(',','.');
+        if(valStr===''){ alert('Informe um número.'); return; }
+        let v = parseFloat(valStr);
+        if(isNaN(v) || v<0){ alert('Valor inválido.'); return; }
+
+        const U=sel.value;
+        const tgt=store[fam][prod][tipo];
+        if(U==='KG') tgt[U]=round3((tgt[U]||0)+v); else tgt[U]=iint((tgt[U]||0)+v);
+        // se o usuário adicionou explicitamente 0, marcar para aparecer no relatório
+        if(v===0){ store[fam][prod].MOSTRAR_NO_RELATORIO=true; }
+        saveJSON(STORAGE_KEY,store);
+        renderHeaderMeta(fam);
+        fb.textContent=`Adicionado: ${U==='KG'?fmt(v)+' KG':iint(v)+' '+U} (${tipo}).`;
         inp.value='';
 
-        // Firestore
-        await window.__fb.fbAddQuantity({ family:familia, product:produto, tipo:selTipo, unit:u, qty:v });
+        // Firestore (somente se > 0 no agregado)
+        await window.__fb.fbAddQuantity({ family:fam, product:prod, tipo:tipo, unit:U, qty:v });
       };
 
-      // Editar absoluto
       btnEdit.onclick=()=>{
-        const cur=store[familia][produto];
-        const u=unitForFamily(familia);
-        const rk=prompt('RESFRIADO KG', cur.RESFRIADO.KG||0);
-        if(rk===null) return;
-        const rc=prompt(`RESFRIADO ${u}`, cur.RESFRIADO[u]||0); if(rc===null) return;
-        const ck=prompt('CONGELADO KG', cur.CONGELADO.KG||0); if(ck===null) return;
-        const cc=prompt(`CONGELADO ${u}`, cur.CONGELADO[u]||0); if(cc===null) return;
-        cur.RESFRIADO.KG=round3(+rk||0); cur.RESFRIADO[u]=iint(+rc||0);
-        cur.CONGELADO.KG=round3(+ck||0); cur.CONGELADO[u]=iint(+cc||0);
-        saveJSON(STORAGE_KEY, store); renderHeaderMeta(familia);
-        feedback.textContent='Atualizado.';
+        const U = unitForFamily(fam);
+        const cur = store[fam][prod];
+        const rk = prompt('RESFRIADO KG', cur.RESFRIADO.KG||0); if(rk===null) return;
+        const ru = prompt(`RESFRIADO ${U}`, cur.RESFRIADO[U]||0); if(ru===null) return;
+        const ck = prompt('CONGELADO KG', cur.CONGELADO.KG||0); if(ck===null) return;
+        const cu = prompt(`CONGELADO ${U}`, cur.CONGELADO[U]||0); if(cu===null) return;
+        cur.RESFRIADO.KG=round3(+rk||0); cur.RESFRIADO[U]=iint(+ru||0);
+        cur.CONGELADO.KG=round3(+ck||0); cur.CONGELADO[U]=iint(+cu||0);
+        // edição manual conta como entrada explícita → mostrar
+        cur.MOSTRAR_NO_RELATORIO = true;
+        saveJSON(STORAGE_KEY,store); renderHeaderMeta(fam); fb.textContent='Atualizado.';
       };
 
       btnDel.onclick=()=>{
-        const isPadrao=PADROES[familia]?.has(produto);
-        if(isPadrao){
+        const pad=PADROES[fam]?.has(prod);
+        if(pad){
           if(confirm('Zerar os totais deste item?')){
-            store[familia][produto]={ RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0} };
-            saveJSON(STORAGE_KEY, store); renderHeaderMeta(familia); feedback.textContent='Zerado.';
+            store[fam][prod]={ RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0}, MOSTRAR_NO_RELATORIO:false };
+            saveJSON(STORAGE_KEY,store); renderHeaderMeta(fam); fb.textContent='Zerado.';
           }
         }else{
-          if(confirm('Remover item personalizado?')){
-            delete store[familia][produto]; saveJSON(STORAGE_KEY, store); wrap.remove(); renderHeaderMeta(familia);
-          }
+          if(confirm('Remover item personalizado?')){ delete store[fam][prod]; saveJSON(STORAGE_KEY,store); wrap.remove(); renderHeaderMeta(fam); }
         }
       };
 
-      wrap.append(name,chips,unitDiv,qty,add,actions,feedback);
+      wrap.append(name,chips,unit,qty,add,actions,fb);
       return wrap;
     }
 
-    function rowNovoProduto(familia){
+    function rowNovoProduto(fam){
       const wrap=document.createElement('div'); wrap.className='row';
       const name=document.createElement('input'); name.placeholder='Novo produto (CAIXA ALTA)'; name.style.textTransform='uppercase';
       const chips=document.createElement('div'); chips.className='chips';
-      const optR=document.createElement('div'); optR.className='chip-opt active'; optR.textContent='RESFRIADO';
-      const optC=document.createElement('div'); optC.className='chip-opt'; optC.textContent='CONGELADO';
-      let selTipo='RESFRIADO'; chips.append(optR,optC);
-      optR.onclick=()=>{selTipo='RESFRIADO';optR.classList.add('active');optC.classList.remove('active')}
-      optC.onclick=()=>{selTipo='CONGELADO';optC.classList.add('active');optR.classList.remove('active')}
-      const unitDiv=document.createElement('div'); unitDiv.className='unit';
-      const sel=buildUnitSelectAll(); unitDiv.appendChild(sel);
+      const cR=document.createElement('div'); cR.className='chip-opt active'; cR.textContent='RESFRIADO';
+      const cC=document.createElement('div'); cC.className='chip-opt'; cC.textContent='CONGELADO';
+      chips.append(cR,cC); let tipo='RESFRIADO';
+      cR.onclick=()=>{tipo='RESFRIADO';cR.classList.add('active');cC.classList.remove('active')}
+      cC.onclick=()=>{tipo='CONGELADO';cC.classList.add('active');cR.classList.remove('active')}
+      const unit=document.createElement('div'); unit.className='unit'; const sel=buildUnitSelect(); unit.appendChild(sel);
       const inp=document.createElement('input'); inp.type='number'; inp.step='0.001'; inp.min='0'; inp.placeholder='Qtd';
       const add=document.createElement('button'); add.className='btn'; add.textContent='Adicionar';
       const fb=document.createElement('div'); fb.className='feedback';
 
       add.onclick=async ()=>{
         const prod=(name.value||'').trim().toUpperCase();
-        const v=parseFloat((inp.value||'').replace(',','.'));
-        const u=sel.value;
+        const valStr=(inp.value||'').replace(',','.');
         if(!prod){ alert('Digite o nome do produto.'); return; }
-        if(isNaN(v)||v<=0){ alert('Informe um valor válido.'); return; }
-        ensureEntry(familia, prod);
-        store[familia][prod][selTipo][u] = (u==='KG')
-          ? round3((store[familia][prod][selTipo][u]||0)+v)
-          : iint((store[familia][prod][selTipo][u]||0)+v);
-        saveJSON(STORAGE_KEY, store);
-        wrap.parentElement.insertBefore(rowProduto(familia, prod), wrap);
-        renderHeaderMeta(familia);
+        if(valStr===''){ alert('Informe um número.'); return; }
+        let v=parseFloat(valStr); if(isNaN(v)||v<0){ alert('Valor inválido.'); return; }
+        const U=sel.value;
+        ensureEntry(fam,prod);
+        const tgt=store[fam][prod][tipo];
+        if(U==='KG') tgt[U]=round3((tgt[U]||0)+v); else tgt[U]=iint((tgt[U]||0)+v);
+        if(v===0){ store[fam][prod].MOSTRAR_NO_RELATORIO=true; }
+        saveJSON(STORAGE_KEY,store);
+        wrap.parentElement.insertBefore(rowProduto(fam,prod),wrap);
+        renderHeaderMeta(fam);
         fb.textContent=`${prod} adicionado.`;
         name.value=''; inp.value='';
-        await window.__fb.fbAddQuantity({ family:familia, product:prod, tipo:selTipo, unit:u, qty:v });
+        await window.__fb.fbAddQuantity({ family:fam, product:prod, tipo:tipo, unit:U, qty:v });
       };
 
       const actions=document.createElement('div'); actions.className='actions';
-      wrap.append(name,chips,unitDiv,inp,add,actions,fb); return wrap;
+      wrap.append(name,chips,unit,inp,add,actions,fb); return wrap;
     }
 
     function render(){
@@ -384,14 +347,15 @@
 
         const unitSel=document.createElement('select'); unitSel.className='fam-unit'; unitSel.innerHTML=`<option value="CX">CX</option><option value="UN">UN</option>`;
         unitSel.value=unitForFamily(fam.nome);
-        unitSel.addEventListener('change',()=>{ familyUnit[fam.nome]=unitSel.value; saveJSON(FAMILY_UNIT_KEY,familyUnit); render(); });
+        unitSel.onchange=()=>{ familyUnit[fam.nome]=unitSel.value; saveJSON(FAMILY_UNIT_KEY,familyUnit); render(); };
 
         const meta=document.createElement('div'); meta.className='fam-meta';
-        const t=totFamilia(fam.nome); meta.textContent=`RESF: ${fmt(t.rk)} KG / ${t.rc} ${unitForFamily(fam.nome)} • CONG: ${fmt(t.ck)} KG / ${t.cc} ${unitForFamily(fam.nome)}`;
+        const t=totFamilia(fam.nome); const U=unitForFamily(fam.nome);
+        meta.textContent=`RESF: ${fmt(t.rk)} KG / ${t.ru} ${U} • CONG: ${fmt(t.ck)} KG / ${t.cu} ${U}`;
 
         const body=document.createElement('div'); body.className='fam-body';
-        const itensFamilia = Object.keys(store[fam.nome]||{});
-        const ordenados=[...new Set([...fam.itens, ...itensFamilia])];
+        const itensFamilia=Object.keys(store[fam.nome]||{});
+        const ordenados=[...new Set([...fam.itens,...itensFamilia])];
         ordenados.forEach(p=>body.appendChild(rowProduto(fam.nome,p)));
         body.appendChild(document.createElement('div')).className='divider';
         body.appendChild(rowNovoProduto(fam.nome));
@@ -399,187 +363,171 @@
         head.append(title,unitSel,meta); card.append(head,body); app.appendChild(card);
       });
     }
+    render();
 
     /* ===== PDF ===== */
-    const PALETAS = [
-      {soft:'#eef2ff', strong:'#6366f1'}, {soft:'#ecfeff', strong:'#06b6d4'},
-      {soft:'#f0fdf4', strong:'#22c55e'}, {soft:'#fffbeb', strong:'#f59e0b'},
-      {soft:'#fef2f2', strong:'#ef4444'}, {soft:'#fdf4ff', strong:'#a855f7'},
-      {soft:'#f1f5f9', strong:'#334155'}, {soft:'#fff1f2', strong:'#f43f5e'},
-      {soft:'#f2f9f5', strong:'#10b981'}, {soft:'#f5f3ff', strong:'#7c3aed'}
+    const PALETAS=[
+      {soft:'#eef2ff',strong:'#6366f1'},{soft:'#ecfeff',strong:'#06b6d4'},
+      {soft:'#f0fdf4',strong:'#22c55e'},{soft:'#fffbeb',strong:'#f59e0b'},
+      {soft:'#fef2f2',strong:'#ef4444'},{soft:'#fdf4ff',strong:'#a855f7'},
+      {soft:'#f1f5f9',strong:'#334155'},{soft:'#fff1f2',strong:'#f43f5e'},
+      {soft:'#f2f9f5',strong:'#10b981'},{soft:'#f5f3ff',strong:'#7c3aed'}
     ];
-    const hex2rgb = (h)=>{h=h.replace('#',''); return {r:parseInt(h.slice(0,2),16),g:parseInt(h.slice(2,4),16),b:parseInt(h.slice(4,6),16)}};
-
-    function wrapText(doc, text, x, y, maxW, lh=10, align='right'){
-      const lines = doc.splitTextToSize(text, maxW);
-      const n = Math.min(lines.length,2);
-      for(let i=0;i<n;i++) doc.text(lines[i], x, y + i*lh, {align});
-      return y + (n-1)*lh;
+    const hex2rgb=h=>{h=h.replace('#','');return{r:parseInt(h.slice(0,2),16),g:parseInt(h.slice(2,4),16),b:parseInt(h.slice(4,6),16)}};
+    function wrap2(doc, text, x, y, maxW, lh=10, align='right'){
+      const lines=doc.splitTextToSize(text,maxW); const use=lines.slice(0,2);
+      use.forEach((ln,i)=>doc.text(ln,x,y+i*lh,{align})); return y+(use.length-1)*lh;
     }
 
-    function buildSnapshot(){
-      const snap={};
+    function snapshot(){
+      const s={};
       for(const fam of FAMILIAS){
-        snap[fam.nome]={};
+        s[fam.nome]={};
         for(const [p,v] of Object.entries(store[fam.nome]||{})){
-          const u=unitForFamily(fam.nome);
-          snap[fam.nome][p]={
+          const U=unitForFamily(fam.nome);
+          s[fam.nome][p]={
             SUM_KG: round3((v.RESFRIADO.KG||0)+(v.CONGELADO.KG||0)),
-            SUM_U : iint((v.RESFRIADO[u]||0)+(v.CONGELADO[u]||0)),
-            RESF_KG:v.RESFRIADO.KG||0, RESF_U:v.RESFRIADO[u]||0,
-            CONG_KG:v.CONGELADO.KG||0, CONG_U:v.CONGELADO[u]||0
+            SUM_U : iint((v.RESFRIADO[U]||0)+(v.CONGELADO[U]||0))
           };
         }
       }
-      return snap;
+      return s;
     }
 
-    async function gerarPDF(){
-      const last = loadJSON(LAST_REPORT_KEY, null);
-      const lastLabel = last?.dateLabel || 'ANTERIOR';
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF({ unit:'pt', format:'a4' });
-      const W = doc.internal.pageSize.getWidth();
-      const margin = 36; let y = margin;
+    function itemVisivelNoPDF(fam,p){
+      const v=store[fam]?.[p];
+      if(!v) return false;
+      const U=unitForFamily(fam);
+      const temQtd = (v.RESFRIADO.KG||0)>0 || (v.CONGELADO.KG||0)>0 || (v.RESFRIADO[U]||0)>0 || (v.CONGELADO[U]||0)>0;
+      return temQtd || !!v.MOSTRAR_NO_RELATORIO;
+    }
 
-      // Logo (200% do tamanho "base" 64) com proporção preservada
-      const b64 = await ensureLogoB64();
-      if(b64){
-        const {w,h} = await measureImage(b64);
-        const targetW = 64*2; const targetH = w ? targetW * (h/w) : 64*2;
-        doc.addImage(b64, (b64.startsWith('data:image/jpeg')?'JPEG':'PNG'), margin, y-10, targetW, targetH);
-      }
+    async function gerarPDFBlob(){
+      const last=loadJSON(LAST_REPORT_KEY,null);
+      const lastLabel=last?.dateLabel || 'ANTERIOR';
+      const { jsPDF } = window.jspdf;
+      const doc=new jsPDF({unit:'pt',format:'a4'});
+      const W=doc.internal.pageSize.getWidth(); const margin=36; let y=margin;
+
+      // logo 200% com proporção
+      const b64=await ensureLogoB64();
+      if(b64){ const {w,h}=await measureImage(b64); const targetW=128; const targetH=w?targetW*(h/w):128; doc.addImage(b64,(b64.startsWith('data:image/jpeg')?'JPEG':'PNG'),margin,y-8,targetW,targetH); }
 
       doc.setFont('helvetica','bold'); doc.setFontSize(16);
       doc.text('ESTOQUE DO DIA', W/2, y+8, {align:'center'});
       doc.setFont('helvetica','normal'); doc.setFontSize(10);
       doc.text(new Date().toLocaleString('pt-BR'), W/2, y+24, {align:'center'});
-      y += 44;
+      y+=44;
 
-      // Colunas x
-      const X_SUM  = W - margin;
-      const X_CONG = X_SUM - 140;
-      const X_RESF = X_CONG - 140;
-      const X_PREV = X_RESF - 140;
+      const colW=140;
+      const X_RESF=W-margin-colW*3; // RESF
+      const X_CONG=W-margin-colW*2; // CONG
+      const X_SUM =W-margin-colW*1; // SOMA
+      const X_PREV=W-margin-colW*0; // PREV (direita)
 
       for(let i=0;i<FAMILIAS.length;i++){
-        const fam = FAMILIAS[i].nome;
-        const u = unitForFamily(fam);
-        const itens = Object.keys(store[fam]||{}).filter(p=>{
-          const v = store[fam][p];
-          return (v.RESFRIADO.KG||0) > 0 || (v.CONGELADO.KG||0) > 0 ||
-                 (v.RESFRIADO[u]||0) > 0 || (v.CONGELADO[u]||0) > 0;
-        });
+        const fam=FAMILIAS[i].nome, U=unitForFamily(fam);
+        const itens=Object.keys(store[fam]||{}).filter(p=>itemVisivelNoPDF(fam,p));
         if(itens.length===0) continue;
 
         if(y>740){ doc.addPage(); y=margin; }
 
-        // Faixa colorida da família
-        const soft = hex2rgb(PALETAS[i%PALETAS.length].soft);
-        const strong = hex2rgb(PALETAS[i%PALETAS.length].strong);
-        doc.setFillColor(soft.r,soft.g,soft.b);
-        doc.rect(margin, y, W - margin*2, 24, 'F');
-        doc.setTextColor(strong.r,strong.g,strong.b);
-        doc.setFont('helvetica','bold'); doc.setFontSize(18);
-        doc.text(fam, W/2, y+16, {align:'center'});
-        doc.setTextColor(0,0,0);
+        // faixa família
+        const soft=hex2rgb(PALETAS[i%PALETAS.length].soft), strong=hex2rgb(PALETAS[i%PALETAS.length].strong);
+        doc.setFillColor(soft.r,soft.g,soft.b); doc.rect(margin,y,W-margin*2,24,'F');
+        doc.setTextColor(strong.r,strong.g,strong.b); doc.setFont('helvetica','bold'); doc.setFontSize(18);
+        doc.text(fam, W/2, y+16, {align:'center'}); doc.setTextColor(0,0,0);
 
-        y += 40; // espaço antes do cabeçalho
+        y+=40;
 
-        // Cabeçalho com quebra automática
+        // cabeçalhos (2 linhas)
         doc.setFont('helvetica','bold'); doc.setFontSize(10);
         doc.text('PRODUTO', margin, y);
-        y = wrapText(doc, `${lastLabel} CONTAGEM`, X_PREV, y, 120, 10, 'right');
-        y = wrapText(doc, `RESFRIADO (KG / ${u})`, X_RESF, y, 120, 10, 'right');
-        y = wrapText(doc, `CONGELADO (KG / ${u})`, X_CONG, y, 120, 10, 'right');
-        y = wrapText(doc, `SOMA ESTOQUE (KG / ${u})`, X_SUM, y, 120, 10, 'right');
+        wrap2(doc, `RESFRIADO (KG / ${U})`, X_RESF, y, colW-10, 10, 'right');
+        wrap2(doc, `CONGELADO (KG / ${U})`, X_CONG, y, colW-10, 10, 'right');
+        wrap2(doc, `SOMA ESTOQUE (KG / ${U})`, X_SUM, y, colW-10, 10, 'right');
+        wrap2(doc, `${lastLabel} CONTAGEM`, X_PREV, y, colW-10, 10, 'right');
 
-        y += 10; doc.line(margin, y, W - margin, y); y += 10;
+        y+=10; doc.line(margin,y,W-margin,y); y+=10;
 
-        // Linhas (zebra)
+        // linhas
         doc.setFont('helvetica','normal'); doc.setFontSize(9);
         let rk=0, ru=0, ck=0, cu=0, row=0;
         for(const p of itens.sort()){
-          const v = store[fam][p];
-          const prev = last?.snapshot?.[fam]?.[p] || {SUM_KG:0,SUM_U:0};
-          const sumKg = round3((v.RESFRIADO.KG||0)+(v.CONGELADO.KG||0));
-          const sumU  = iint((v.RESFRIADO[u]||0)+(v.CONGELADO[u]||0));
+          const v=store[fam][p], prev=last?.snapshot?.[fam]?.[p]||{SUM_KG:0,SUM_U:0};
+          const sumKg=round3((v.RESFRIADO.KG||0)+(v.CONGELADO.KG||0));
+          const sumU =iint((v.RESFRIADO[U]||0)+(v.CONGELADO[U]||0));
 
           if(y>780){ doc.addPage(); y=margin; row=0; }
 
-          if(row%2===1){ doc.setFillColor(240,240,240); doc.rect(margin, y-10, W - margin*2, 16, 'F'); }
+          if(row%2===1){ doc.setFillColor(240,240,240); doc.rect(margin,y-10,W-margin*2,16,'F'); }
 
           doc.text(p, margin, y);
-          doc.text(`${fmt(prev.SUM_KG)} / ${iint(prev.SUM_U)}`, X_PREV, y, {align:'right'});
-          doc.text(`${fmt(v.RESFRIADO.KG||0)} / ${iint(v.RESFRIADO[u]||0)}`, X_RESF, y, {align:'right'});
-          doc.text(`${fmt(v.CONGELADO.KG||0)} / ${iint(v.CONGELADO[u]||0)}`, X_CONG, y, {align:'right'});
+          doc.text(`${fmt(v.RESFRIADO.KG||0)} / ${iint(v.RESFRIADO[U]||0)}`, X_RESF, y, {align:'right'});
+          doc.text(`${fmt(v.CONGELADO.KG||0)} / ${iint(v.CONGELADO[U]||0)}`, X_CONG, y, {align:'right'});
           doc.text(`${fmt(sumKg)} / ${sumU}`, X_SUM, y, {align:'right'});
+          doc.text(`${fmt(prev.SUM_KG)} / ${iint(prev.SUM_U)}`, X_PREV, y, {align:'right'});
 
           y+=16; row++;
-          rk+=v.RESFRIADO.KG||0; ru+=iint(v.RESFRIADO[u]||0);
-          ck+=v.CONGELADO.KG||0; cu+=iint(v.CONGELADO[u]||0);
+          rk+=v.RESFRIADO.KG||0; ru+=iint(v.RESFRIADO[U]||0);
+          ck+=v.CONGELADO.KG||0; cu+=iint(v.CONGELADO[U]||0);
         }
 
-        // Totais
-        y += 2; doc.setFont('helvetica','bold'); doc.setFontSize(10);
+        // totais
+        y+=2; doc.setFont('helvetica','bold'); doc.setFontSize(10);
         doc.text('TOTAL', margin, y);
-        doc.text(`${fmt(round3(rk+ck))} / ${iint(ru+cu)}`, X_SUM, y, {align:'right'});
         doc.text(`${fmt(rk)} / ${ru}`, X_RESF, y, {align:'right'});
         doc.text(`${fmt(ck)} / ${cu}`, X_CONG, y, {align:'right'});
-        doc.setFont('helvetica','normal'); doc.setFontSize(9);
-        y += 14;
+        doc.text(`${fmt(round3(rk+ck))} / ${iint(ru+cu)}`, X_SUM, y, {align:'right'});
+        const prevFam=itens.reduce((acc,p)=>{const k=last?.snapshot?.[fam]?.[p]?.SUM_KG||0; const u=last?.snapshot?.[fam]?.[p]?.SUM_U||0; return {kg:round3(acc.kg+k), un:acc.un+iint(u)};},{kg:0,un:0});
+        doc.text(`${fmt(prevFam.kg)} / ${iint(prevFam.un)}`, X_PREV, y, {align:'right'});
+        doc.setFont('helvetica','normal'); doc.setFontSize(9); y+=14;
       }
 
       return doc.output('blob');
     }
 
-    async function abrirPDFEmAba(blob){
+    async function abrirPDF(blob){
       const url=URL.createObjectURL(blob);
       window.open(url,'_blank');
-      setTimeout(()=>URL.revokeObjectURL(url), 60000);
+      setTimeout(()=>URL.revokeObjectURL(url),60000);
     }
 
-    async function gerarEabrir(){
+    async function gerarERegistrar(){
       await ensureLogoB64();
-      const blob = await gerarPDF();
-      const now = new Date();
-      saveJSON(LAST_REPORT_KEY, { dateISO: now.toISOString(), dateLabel: dtLabel(now), snapshot: buildSnapshot() });
-      await abrirPDFEmAba(blob); // apenas abre (não força salvar)
-      return { blob, now };
+      const blob=await gerarPDFBlob();
+      const now=new Date();
+      localStorage.setItem(LAST_REPORT_KEY, JSON.stringify({dateISO:now.toISOString(),dateLabel:dtLabel(now),snapshot:snapshot()}));
+      return {blob,now};
     }
 
     // Botões topo
-    document.getElementById('btnExportar').addEventListener('click', async ()=>{
-      await gerarEabrir(); // só abre na tela
-    });
-
-    document.getElementById('btnCompartilhar').addEventListener('click', async ()=>{
-      const { blob, now } = await gerarEabrir();
-      const fname = `ESTOQUE ${dtFile(now)}.pdf`;
-      if(navigator.canShare && navigator.canShare({ files:[new File([blob], fname, {type:'application/pdf'})] })){
-        try{
-          await navigator.share({ files:[ new File([blob], fname, {type:'application/pdf'}) ], title:'Estoque', text:'Relatório de estoque' });
-        }catch(e){ /* usuário cancelou; sem erro visual */ }
+    $('#btnExportar').onclick=async ()=>{
+      const {blob}=await gerarERegistrar();
+      await abrirPDF(blob); // abre na aba SEM pedir para salvar
+    };
+    $('#btnCompartilhar').onclick=async ()=>{
+      const {blob,now}=await gerarERegistrar();
+      await abrirPDF(blob); // já abre
+      const fname=`ESTOQUE ${dtFile(now)}.pdf`;
+      const file=new File([blob],fname,{type:'application/pdf'});
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        try{ await navigator.share({files:[file],title:'Estoque',text:'Relatório de estoque'});}catch(e){}
       }
-      // se o dispositivo não suportar share com arquivos, ao menos já abrimos na aba
-    });
+    };
 
-    // Zerar
-    document.getElementById('btnLimpar').addEventListener('click', async ()=>{
-      if(!confirm('Zerar todo o estoque (servidor + dispositivo)?')) return;
-      try{ await window.__fb.fbZeroAllInventory(); }catch(e){ console.warn('Falha ao zerar servidor:', e); }
-      // zera local
+    // Zerar total (local + aviso servidor)
+    $('#btnLimpar').onclick=async ()=>{
+      if(!confirm('Zerar todo o estoque (dispositivo + servidor)?')) return;
+      try{ await window.__fb.fbZeroAllInventory(); }catch(e){ console.warn('Falha ao zerar Firestore:',e); }
       for(const fam of FAMILIAS){
         for(const p of Object.keys(store[fam.nome]||{})){
-          store[fam.nome][p] = { RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0} };
+          store[fam.nome][p]={ RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0}, MOSTRAR_NO_RELATORIO:false };
         }
       }
-      saveJSON(STORAGE_KEY, store);
-      render();
-      alert('Estoque zerado.');
-    });
+      saveJSON(STORAGE_KEY,store); render(); alert('Estoque zerado.');
+    };
 
-    render();
     if('serviceWorker' in navigator){ navigator.serviceWorker.register('./sw.js').catch(()=>{}); }
   </script>
 </body>
