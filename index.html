@@ -74,6 +74,7 @@
     <div class="spacer"></div>
     <button class="btn" id="btnLimpar">Zerar</button>
     <button class="btn" id="btnExportar">Gerar PDF</button>
+    <button class="btn" id="btnXLS">Gerar XLS</button>
     <button class="btn primary" id="btnCompartilhar">Compartilhar PDF</button>
   </header>
 
@@ -110,7 +111,6 @@
     const invId = (family, product) => `${family}__${product}`.toUpperCase().replace(/\s+/g,' ').trim();
 
     async function fbAddQuantity({ family, product, tipo, unit, qty }){
-      // histórica mesmo se qty=0; agregado só quando > 0
       const id = invId(family, product);
       const ref = doc(db, "inventory", id);
       if(qty !== 0){
@@ -369,9 +369,11 @@
       {soft:'#f2f9f5',strong:'#10b981'},{soft:'#f5f3ff',strong:'#7c3aed'}
     ];
     const hex2rgb=h=>{h=h.replace('#','');return{r:parseInt(h.slice(0,2),16),g:parseInt(h.slice(2,4),16),b:parseInt(h.slice(4,6),16)}};
-    function wrap2(doc, text, x, y, maxW, lh=10, align='right'){
-      const lines=doc.splitTextToSize(text,maxW); const use=lines.slice(0,2);
-      use.forEach((ln,i)=>doc.text(ln,x,y+i*lh,{align})); return y+(use.length-1)*lh;
+    function wrap2(doc, text, xCenter, y, maxW, lh=10){
+      // Centraliza e quebra em até 2 linhas
+      const lines=doc.splitTextToSize(text,maxW).slice(0,2);
+      lines.forEach((ln,i)=>doc.text(ln, xCenter, y + i*lh, {align:'center'}));
+      return y+(lines.length-1)*lh;
     }
 
     function snapshot(){
@@ -399,37 +401,41 @@
 
     async function gerarPDFBlob(){
       const last=loadJSON(LAST_REPORT_KEY,null);
-      const lastLabel=last?.dateLabel || 'ANTERIOR';
       const { jsPDF } = window.jspdf;
 
-      /* >>> A4 PAISAGEM <<< */
       const doc=new jsPDF({unit:'pt', format:'a4', orientation:'landscape'});
+      const W=doc.internal.pageSize.getWidth();
+      const margin=36; let y=margin;
 
-      const W=doc.internal.pageSize.getWidth(); const margin=36; let y=margin;
+      // Logo
+      await ensureLogoB64();
+      if(logoB64){
+        const {w,h}=await measureImage(logoB64);
+        const targetW=128; const targetH=w?targetW*(h/w):128;
+        doc.addImage(logoB64,(logoB64.startsWith('data:image/jpeg')?'JPEG':'PNG'),margin,y-8,targetW,targetH);
+      }
 
-      // logo 200% com proporção
-      const b64=await ensureLogoB64();
-      if(b64){ const {w,h}=await measureImage(b64); const targetW=128; const targetH=w?targetW*(h/w):128; doc.addImage(b64,(b64.startsWith('data:image/jpeg')?'JPEG':'PNG'),margin,y-8,targetW,targetH); }
-
+      // Título
       doc.setFont('helvetica','bold'); doc.setFontSize(16);
       doc.text('ESTOQUE DO DIA', W/2, y+8, {align:'center'});
       doc.setFont('helvetica','normal'); doc.setFontSize(10);
       doc.text(new Date().toLocaleString('pt-BR'), W/2, y+24, {align:'center'});
       y+=44;
 
-      // colunas (produto + 4 blocos à direita)
+      // Definição de colunas (Produto | Contagem(Anterior) | Resfriado | Congelado | Soma)
       const colW=160;
-      const X_RESF=W-margin-colW*3.5; // RESF
-      const X_CONG=W-margin-colW*2.5; // CONG
-      const X_SUM =W-margin-colW*1.5; // SOMA
-      const X_PREV=W-margin-colW*0.5; // PREV (mais à direita)
+      const X_PROD = margin + colW*0.5;                // centro da coluna produto
+      const X_PREV = W - margin - colW*3.5 + colW*0.5; // 1ª coluna à direita do produto
+      const X_RESF = W - margin - colW*2.5 + colW*0.5;
+      const X_CONG = W - margin - colW*1.5 + colW*0.5;
+      const X_SUM  = W - margin - colW*0.5 + colW*0.5;
 
       for(let i=0;i<FAMILIAS.length;i++){
         const fam=FAMILIAS[i].nome, U=unitForFamily(fam);
         const itens=Object.keys(store[fam]||{}).filter(p=>itemVisivelNoPDF(fam,p));
         if(itens.length===0) continue;
 
-        if(y>540){ doc.addPage(); y=margin; } // paisagem -> menos altura útil
+        if(y>540){ doc.addPage(); y=margin; }
 
         // faixa família
         const pal=PALETAS[i%PALETAS.length]; const soft=hex2rgb(pal.soft); const strong=hex2rgb(pal.strong);
@@ -439,15 +445,15 @@
 
         y+=40;
 
-        // cabeçalhos (2 linhas)
+        // cabeçalhos (2 linhas, centralizados)
         doc.setFont('helvetica','bold'); doc.setFontSize(10);
-        doc.text('PRODUTO', margin, y);
-        wrap2(doc, `RESFRIADO (KG / ${U})`, X_RESF, y, colW-20, 10, 'right');
-        wrap2(doc, `CONGELADO (KG / ${U})`, X_CONG, y, colW-20, 10, 'right');
-        wrap2(doc, `SOMA ESTOQUE (KG / ${U})`, X_SUM, y, colW-20, 10, 'right');
-        wrap2(doc, `${last?.dateLabel||'ANTERIOR'} CONTAGEM`, X_PREV, y, colW-20, 10, 'right');
+        wrap2(doc, 'PRODUTO', X_PROD, y, colW-20);
+        wrap2(doc, `${(last?.dateLabel||'ANTERIOR')} \nCONTAGEM`, X_PREV, y, colW-20);
+        wrap2(doc, `RESFRIADO \n(KG / ${U})`, X_RESF, y, colW-20);
+        wrap2(doc, `CONGELADO \n(KG / ${U})`, X_CONG, y, colW-20);
+        wrap2(doc, `SOMA \n(KG / ${U})`, X_SUM, y, colW-20);
 
-        y+=10; doc.line(margin,y,W-margin,y); y+=10;
+        y+=12; doc.line(margin,y,W-margin,y); y+=10;
 
         // linhas
         doc.setFont('helvetica','normal'); doc.setFontSize(9);
@@ -461,26 +467,25 @@
 
           if(row%2===1){ doc.setFillColor(240,240,240); doc.rect(margin,y-10,W-margin*2,16,'F'); }
 
-          doc.text(p, margin, y);
-          doc.text(`${fmt(v.RESFRIADO.KG||0)} / ${iint(v.RESFRIADO[U]||0)}`, X_RESF, y, {align:'right'});
-          doc.text(`${fmt(v.CONGELADO.KG||0)} / ${iint(v.CONGELADO[U]||0)}`, X_CONG, y, {align:'right'});
-          doc.text(`${fmt(sumKg)} / ${sumU}`, X_SUM, y, {align:'right'});
-          doc.text(`${fmt(prev.SUM_KG)} / ${iint(prev.SUM_U)}`, X_PREV, y, {align:'right'});
+          doc.text(p, X_PROD, y, {align:'center'});
+          doc.text(`${fmt(prev.SUM_KG)} / ${iint(prev.SUM_U)}`, X_PREV, y, {align:'center'});
+          doc.text(`${fmt(v.RESFRIADO.KG||0)} / ${iint(v.RESFRIADO[U]||0)}`, X_RESF, y, {align:'center'});
+          doc.text(`${fmt(v.CONGELADO.KG||0)} / ${iint(v.CONGELADO[U]||0)}`, X_CONG, y, {align:'center'});
+          doc.text(`${fmt(sumKg)} / ${sumU}`, X_SUM, y, {align:'center'});
 
           y+=16; row++;
           rk+=v.RESFRIADO.KG||0; ru+=iint(v.RESFRIADO[U]||0);
           ck+=v.CONGELADO.KG||0; cu+=iint(v.CONGELADO[U]||0);
         }
 
-        // totais
+        // totais (centralizados)
         y+=2; doc.setFont('helvetica','bold'); doc.setFontSize(10);
-        doc.text('TOTAL', margin, y);
-        doc.text(`${fmt(rk)} / ${ru}`, X_RESF, y, {align:'right'});
-        doc.text(`${fmt(ck)} / ${cu}`, X_CONG, y, {align:'right'});
-        doc.text(`${fmt(round3(rk+ck))} / ${iint(ru+cu)}`, X_SUM, y, {align:'right'});
-
+        doc.text('TOTAL', X_PROD, y, {align:'center'});
         const prevFam=itens.reduce((acc,p)=>{const k=last?.snapshot?.[fam]?.[p]?.SUM_KG||0; const u=last?.snapshot?.[fam]?.[p]?.SUM_U||0; return {kg:round3(acc.kg+k), un:acc.un+iint(u)};},{kg:0,un:0});
-        doc.text(`${fmt(prevFam.kg)} / ${iint(prevFam.un)}`, X_PREV, y, {align:'right'});
+        doc.text(`${fmt(prevFam.kg)} / ${iint(prevFam.un)}`, X_PREV, y, {align:'center'});
+        doc.text(`${fmt(rk)} / ${ru}`, X_RESF, y, {align:'center'});
+        doc.text(`${fmt(ck)} / ${cu}`, X_CONG, y, {align:'center'});
+        doc.text(`${fmt(round3(rk+ck))} / ${iint(ru+cu)}`, X_SUM, y, {align:'center'});
 
         doc.setFont('helvetica','normal'); doc.setFontSize(9); y+=14;
       }
@@ -490,6 +495,7 @@
 
     async function abrirPDF(blob){
       const url=URL.createObjectURL(blob);
+      // Abre em nova aba/janela
       window.open(url,'_blank');
       setTimeout(()=>URL.revokeObjectURL(url),60000);
     }
@@ -499,8 +505,67 @@
     async function gerarERegistrar(){
       await ensureLogoB64();
       const blob=await gerarPDFBlob();
+      // Salva o snapshot APÓS gerar (vira "anterior" para a próxima vez)
       localStorage.setItem(LAST_REPORT_KEY, JSON.stringify(snapshotNow()));
       return blob;
+    }
+
+    /* ===== XLS (HTML-table compatível) ===== */
+    function gerarXLSBlob(){
+      const last=loadJSON(LAST_REPORT_KEY,null);
+      let html = `
+      <html><head><meta charset="UTF-8"></head><body>
+      <table border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse;font-family:Arial">
+        <tr style="font-weight:bold;text-align:center;background:#eee">
+          <td>FAMÍLIA</td>
+          <td>PRODUTO</td>
+          <td>${(last?.dateLabel||'ANTERIOR')}<br/>CONTAGEM</td>
+          <td>RESFRIADO<br/>(KG / UN)</td>
+          <td>CONGELADO<br/>(KG / UN)</td>
+          <td>SOMA<br/>(KG / UN)</td>
+        </tr>`;
+
+      for(const [idx, famObj] of FAMILIAS.entries()){
+        const fam = famObj.nome;
+        const U = unitForFamily(fam);
+        const itens = Object.keys(store[fam]||{}).filter(p=>itemVisivelNoPDF(fam,p)).sort();
+        if(itens.length===0) continue;
+
+        for(const p of itens){
+          const v=store[fam][p], prev=last?.snapshot?.[fam]?.[p]||{SUM_KG:0,SUM_U:0};
+          const sumKg=round3((v.RESFRIADO.KG||0)+(v.CONGELADO.KG||0));
+          const sumU =iint((v.RESFRIADO[U]||0)+(v.CONGELADO[U]||0));
+          html += `
+            <tr style="text-align:center">
+              <td>${fam}</td>
+              <td>${p}</td>
+              <td>${fmt(prev.SUM_KG)} / ${iint(prev.SUM_U)}</td>
+              <td>${fmt(v.RESFRIADO.KG||0)} / ${iint(v.RESFRIADO[U]||0)}</td>
+              <td>${fmt(v.CONGELADO.KG||0)} / ${iint(v.CONGELADO[U]||0)}</td>
+              <td>${fmt(sumKg)} / ${sumU}</td>
+            </tr>`;
+        }
+
+        // Totais por família
+        let rk=0,ru=0,ck=0,cu=0;
+        for(const p of itens){
+          const Ufam=U, v=store[fam][p];
+          rk+=v.RESFRIADO.KG||0; ru+=iint(v.RESFRIADO[Ufam]||0);
+          ck+=v.CONGELADO.KG||0; cu+=iint(v.CONGELADO[Ufam]||0);
+        }
+        const prevFam=itens.reduce((acc,p)=>{const k=last?.snapshot?.[fam]?.[p]?.SUM_KG||0; const u=last?.snapshot?.[fam]?.[p]?.SUM_U||0; return {kg:round3(acc.kg+k), un:acc.un+iint(u)};},{kg:0,un:0});
+        html += `
+          <tr style="font-weight:bold;text-align:center;background:#f6f6f6">
+            <td colspan="2">TOTAL ${fam}</td>
+            <td>${fmt(prevFam.kg)} / ${iint(prevFam.un)}</td>
+            <td>${fmt(round3(rk))} / ${iint(ru)}</td>
+            <td>${fmt(round3(ck))} / ${iint(cu)}</td>
+            <td>${fmt(round3(rk+ck))} / ${iint(ru+cu)}</td>
+          </tr>`;
+      }
+
+      html += `</table></body></html>`;
+      return new Blob([html], {type:'application/vnd.ms-excel'});
     }
 
     // Botões topo
@@ -508,6 +573,7 @@
       const blob=await gerarERegistrar();
       await abrirPDF(blob);
     };
+
     document.getElementById('btnCompartilhar').onclick=async ()=>{
       const blob=await gerarERegistrar();
       await abrirPDF(blob);
@@ -518,16 +584,42 @@
       }
     };
 
-    // Zerar total (local + servidor)
+    document.getElementById('btnXLS').onclick=()=>{
+      const blob=gerarXLSBlob();
+      const fname=`ESTOQUE ${dtFile(new Date())}.xls`;
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),60000);
+    };
+
+    // Zerar total (local + servidor) — preserva último relatório p/ comparação
     document.getElementById('btnLimpar').onclick=async ()=>{
       if(!confirm('Zerar todo o estoque (dispositivo + servidor)?')) return;
+
+      // Puxa o último snapshot ANTES de zerar
+      const last = loadJSON(LAST_REPORT_KEY,null);
+
       try{ await window.__fb.fbZeroAllInventory(); }catch(e){ console.warn('Falha ao zerar Firestore:',e); }
+
+      // Zera local e mantém visibilidade p/ itens do último relatório
       for(const fam of FAMILIAS){
         for(const p of Object.keys(store[fam.nome]||{})){
           store[fam.nome][p]={ RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0}, MOSTRAR_NO_RELATORIO:false };
         }
       }
-      saveJSON(STORAGE_KEY,store); render(); alert('Estoque zerado.');
+      // Garante que tudo que apareceu no último relatório continue VISÍVEL para comparação
+      if(last?.snapshot){
+        for(const fam of Object.keys(last.snapshot)){
+          for(const p of Object.keys(last.snapshot[fam])){
+            ensureEntry(fam,p);
+            store[fam][p].MOSTRAR_NO_RELATORIO = true;
+          }
+        }
+      }
+
+      saveJSON(STORAGE_KEY,store);
+      render();
+      alert('Estoque zerado. O relatório anterior continuará aparecendo na coluna "Contagem" para comparação.');
     };
 
     if('serviceWorker' in navigator){ navigator.serviceWorker.register('./sw.js').catch(()=>{}); }
