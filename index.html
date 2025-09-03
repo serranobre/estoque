@@ -50,6 +50,7 @@
     .chips{display:flex;gap:8px;flex-wrap:wrap}
     .chip-opt{border:1px solid var(--line);padding:8px 12px;border-radius:999px;background:#fff;cursor:pointer;user-select:none}
     .chip-opt.active{border-color:#111827;background:#111827;color:#fff}
+    .unit select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff}
     .qty input{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px}
     .actions{display:flex;gap:6px}
     .feedback{grid-column:1/-1;font-size:12px;color:#0f172a;padding:6px 2px 10px;min-height:18px}
@@ -186,18 +187,19 @@
     const PADROES = Object.fromEntries(FAMILIAS.map(f=>[f.nome,new Set(f.itens)]));
 
     /* ===== Storage ===== */
-    const STORAGE_KEY="estoque_pwa_v7";
+    const STORAGE_KEY="estoque_pwa_v8";
     const LAST_REPORT_KEY="estoque_last_report_v2";
     const FAMILY_UNIT_KEY="estoque_family_unit_v2";
     const PRICE_DB_KEY="estoque_price_db_v1"; // preços por item
 
     const $=s=>document.querySelector(s);
-    const fmt=n=>(Math.round(n*1000)/1000).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3});
     const round3=n=>Math.round(n*1000)/1000;
+    const fmt=n=>round3(+n||0).toLocaleString('pt-BR',{minimumFractionDigits:3,maximumFractionDigits:3});
     const iint=n=>parseInt(Math.round(+n||0));
     const pad2=n=>String(n).padStart(2,'0');
+    const todayKey=()=>{const d=new Date();return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;};
     const dtLabel=(d=new Date())=>`${pad2(d.getDate())}/${pad2(d.getMonth()+1)}`;
-    const dtFile =(d=new Date())=>`${pad2(d.getDate())}-${pad2(d.getMonth()+1)}-${String(d.getFullYear()).slice(-2)}`;
+    const dtFileFull =(d=new Date())=>`${pad2(d.getDate())}-${pad2(d.getMonth()+1)}-${d.getFullYear()}`;
     const loadJSON=(k,f)=>{try{return JSON.parse(localStorage.getItem(k))??f}catch{return f}};
     const saveJSON=(k,v)=>localStorage.setItem(k,JSON.stringify(v));
 
@@ -205,7 +207,7 @@
     for(const fam of FAMILIAS){
       store[fam.nome] ??= {};
       for(const p of fam.itens){
-        store[fam.nome][p] ??= { RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0}, MOSTRAR_NO_RELATORIO:false };
+        store[fam.nome][p] ??= { RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0}, TOUCHED_DATE:null, MOSTRAR_NO_RELATORIO:false };
       }
     }
     saveJSON(STORAGE_KEY,store);
@@ -230,16 +232,18 @@
           const prod= String(d.product||'').toUpperCase();
           if(!fam || !prod) continue;
           store[fam] ??= {};
-          store[fam][prod] ??= { RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0}, MOSTRAR_NO_RELATORIO:false };
-          // hidrata quantidades (aceita ausência de algum campo)
+          store[fam][prod] ??= { RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0}, TOUCHED_DATE:null, MOSTRAR_NO_RELATORIO:false };
+
+          // hidrata quantidades
           store[fam][prod].RESFRIADO.KG = round3(+d.resfriado_kg||0);
           store[fam][prod].RESFRIADO.CX = iint(+d.resfriado_cx||0);
           store[fam][prod].RESFRIADO.UN = iint(+d.resfriado_un||0);
           store[fam][prod].CONGELADO.KG = round3(+d.congelado_kg||0);
           store[fam][prod].CONGELADO.CX = iint(+d.congelado_cx||0);
           store[fam][prod].CONGELADO.UN = iint(+d.congelado_un||0);
-          // se existir no servidor, marque para aparecer no relatório mesmo se 0
-          store[fam][prod].MOSTRAR_NO_RELATORIO ||= true;
+
+          // NÃO forçamos aparecer no relatório do dia (apenas itens digitados hoje)
+          // store[fam][prod].MOSTRAR_NO_RELATORIO permanece como legado (não usado nos relatórios)
         }
         saveJSON(STORAGE_KEY, store);
       }catch(e){
@@ -251,20 +255,10 @@
     let termoBusca = '';
     $('#busca').addEventListener('input', (e)=>{ termoBusca = (e.target.value||'').trim().toUpperCase(); render(); });
 
-    /* ===== Normalização de número (pt-BR seguro) ===== */
-    const normalizeQty = (raw)=>{
-      if(raw==null) return NaN;
-      let s = String(raw).trim().replace(/\s+/g,'');
-      s = s.replace(/\./g,'').replace(',', '.'); // remove milhares, usa '.' decimal
-      const parts = s.split('.');
-      if(parts.length>2){ const dec = parts.pop(); s = parts.join('') + '.' + dec; }
-      return parseFloat(s);
-    };
-
     /* ===== Funções de dados ===== */
     function ensureEntry(familia,produto){
       store[familia] ??= {};
-      store[familia][produto] ??= { RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0}, MOSTRAR_NO_RELATORIO:false };
+      store[familia][produto] ??= { RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0}, TOUCHED_DATE:null, MOSTRAR_NO_RELATORIO:false };
     }
 
     function totFamilia(f){
@@ -284,19 +278,15 @@
       });
     }
 
-    // === Chips de unidade (KG/CX/UN)
-    const buildUnitChips = (initial='KG')=>{
-      const wrap=document.createElement('div'); wrap.className='chips';
-      const opts=['KG','CX','UN']; let cur=initial;
-      const btns = opts.map(v=>{
-        const b=document.createElement('div');
-        b.className='chip-opt'+(v===cur?' active':''); b.textContent=v;
-        b.onclick=()=>{ cur=v; btns.forEach(x=>x.classList.toggle('active', x===b)); };
-        return b;
-      });
-      btns.forEach(b=>wrap.appendChild(b));
-      return {el:wrap, get value(){return cur;}};
+    const buildUnitSelect=()=>{const s=document.createElement('select'); s.innerHTML='<option>KG</option><option>CX</option><option>UN</option>'; return s;};
+
+    // Helpers de visibilidade
+    const hasQuantity=(fam,p)=> {
+      const v = store[fam]?.[p]; if(!v) return false;
+      const U = unitForFamily(fam);
+      return (v.RESFRIADO.KG||0)>0 || (v.CONGELADO.KG||0)>0 || (v.RESFRIADO[U]||0)>0 || (v.CONGELADO[U]||0)>0;
     };
+    const touchedToday=(fam,p)=> (store[fam]?.[p]?.TOUCHED_DATE || '') === todayKey();
 
     /* ===== UI: linhas de produto ===== */
     function rowProduto(fam,prod){
@@ -313,11 +303,8 @@
       cR.onclick=()=>{tipo='RESFRIADO';cR.classList.add('active');cC.classList.remove('active')};
       cC.onclick=()=>{tipo='CONGELADO';cC.classList.add('active');cR.classList.remove('active')};
 
-      const unit=document.createElement('div'); unit.className='unit';
-      const unitChips=buildUnitChips('KG'); unit.appendChild(unitChips.el);
-
-      const qty=document.createElement('div'); qty.className='qty';
-      const inp=document.createElement('input'); inp.type='number'; inp.step='0.001'; inp.min='0'; inp.placeholder='Qtd'; inp.inputMode='decimal'; qty.appendChild(inp);
+      const unit=document.createElement('div'); unit.className='unit'; const sel=buildUnitSelect(); unit.appendChild(sel);
+      const qty=document.createElement('div'); qty.className='qty'; const inp=document.createElement('input'); inp.type='number'; inp.step='0.001'; inp.min='0'; inp.placeholder='Qtd'; qty.appendChild(inp);
 
       const add=document.createElement('button'); add.className='btn'; add.textContent='Adicionar';
       const actions=document.createElement('div'); actions.className='actions';
@@ -328,14 +315,17 @@
       const fb=document.createElement('div'); fb.className='feedback';
 
       add.onclick=async ()=>{
-        const valStr=(inp.value||'');
-        if(String(valStr).trim()===''){ alert('Informe um número.'); return; }
-        let v = normalizeQty(valStr);
+        const valStr=(inp.value||'').replace(',','.');
+        if(valStr===''){ alert('Informe um número.'); return; }
+        let v = parseFloat(valStr);
         if(isNaN(v) || v<0){ alert('Valor inválido.'); return; }
-        const U = unitChips.value;
+        const U = sel.value;
         const tgt = store[fam][prod][tipo];
         if(U==='KG') tgt[U]=round3((tgt[U]||0)+v); else tgt[U]=iint((tgt[U]||0)+v);
-        if(v===0){ store[fam][prod].MOSTRAR_NO_RELATORIO=true; }
+
+        // marcar como digitado hoje (independente de v ser 0 ou >0)
+        store[fam][prod].TOUCHED_DATE = todayKey();
+
         saveJSON(STORAGE_KEY,store);
         renderHeaderMeta(fam);
         fb.textContent=`Adicionado: ${U==='KG'?fmt(v)+' KG':iint(v)+' '+U} (${tipo}).`;
@@ -352,7 +342,10 @@
         const cu = prompt(`CONGELADO ${U}`, cur.CONGELADO[U]||0); if(cu===null) return;
         cur.RESFRIADO.KG=round3(+rk||0); cur.RESFRIADO[U]=iint(+ru||0);
         cur.CONGELADO.KG=round3(+ck||0); cur.CONGELADO[U]=iint(+cu||0);
-        cur.MOSTRAR_NO_RELATORIO=true;
+
+        // editar também conta como digitado hoje
+        cur.TOUCHED_DATE = todayKey();
+
         saveJSON(STORAGE_KEY,store); renderHeaderMeta(fam); fb.textContent='Atualizado.';
       };
 
@@ -360,7 +353,7 @@
         const pad=PADROES[fam]?.has(prod);
         if(pad){
           if(confirm('Zerar os totais deste item?')){
-            store[fam][prod]={ RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0}, MOSTRAR_NO_RELATORIO:false };
+            store[fam][prod]={ RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0}, TOUCHED_DATE:todayKey(), MOSTRAR_NO_RELATORIO:false };
             saveJSON(STORAGE_KEY,store); renderHeaderMeta(fam); fb.textContent='Zerado.';
           }
         }else{
@@ -381,22 +374,25 @@
       chips.append(cR,cC); let tipo='RESFRIADO';
       cR.onclick=()=>{tipo='RESFRIADO';cR.classList.add('active');cC.classList.remove('active')}
       cC.onclick=()=>{tipo='CONGELADO';cC.classList.add('active');cR.classList.remove('active')}
-      const unit=document.createElement('div'); unit.className='unit'; const unitChips=buildUnitChips('KG'); unit.appendChild(unitChips.el);
-      const inp=document.createElement('input'); inp.type='number'; inp.step='0.001'; inp.min='0'; inp.placeholder='Qtd'; inp.inputMode='decimal';
+      const unit=document.createElement('div'); unit.className='unit'; const sel=buildUnitSelect(); unit.appendChild(sel);
+      const inp=document.createElement('input'); inp.type='number'; inp.step='0.001'; inp.min='0'; inp.placeholder='Qtd';
       const add=document.createElement('button'); add.className='btn'; add.textContent='Adicionar';
       const fb=document.createElement('div'); fb.className='feedback';
 
       add.onclick=async ()=>{
         const prod=(name.value||'').trim().toUpperCase();
-        const valStr=(inp.value||'');
+        const valStr=(inp.value||'').replace(',','.');
         if(!prod){ alert('Digite o nome do produto.'); return; }
-        if(String(valStr).trim()===''){ alert('Informe um número.'); return; }
-        let v=normalizeQty(valStr); if(isNaN(v)||v<0){ alert('Valor inválido.'); return; }
-        const U=unitChips.value;
+        if(valStr===''){ alert('Informe um número.'); return; }
+        let v=parseFloat(valStr); if(isNaN(v)||v<0){ alert('Valor inválido.'); return; }
+        const U=sel.value;
         ensureEntry(fam,prod);
         const tgt=store[fam][prod][tipo];
         if(U==='KG') tgt[U]=round3((tgt[U]||0)+v); else tgt[U]=iint((tgt[U]||0)+v);
-        if(v===0){ store[fam][prod].MOSTRAR_NO_RELATORIO=true; }
+
+        // marcado como digitado hoje
+        store[fam][prod].TOUCHED_DATE = todayKey();
+
         saveJSON(STORAGE_KEY,store);
         const row=rowProduto(fam,prod); if(row) wrap.parentElement.insertBefore(row,wrap);
         renderHeaderMeta(fam);
@@ -453,7 +449,6 @@
     ];
     const hex2rgb=h=>{h=h.replace('#','');return{r:parseInt(h.slice(0,2),16),g:parseInt(h.slice(2,4),16),b:parseInt(h.slice(4,6),16)}};
 
-    // Cabeçalhos sempre quebrados em 2 linhas e centralizados
     function wrap2(doc, text, xCenter, y, maxW, lh=10){
       const lines = doc.splitTextToSize(String(text).replace(/\s*\n\s*/g,'\n'), maxW).slice(0,2);
       lines.forEach((ln,i)=>doc.text(ln, xCenter, y + i*lh, {align:'center'}));
@@ -478,26 +473,27 @@
       return s;
     }
 
-    function itemVisivelNoPDF(fam, p){
-      const v = store[fam]?.[p];
-      if(!v) return false;
-      const U = unitForFamily(fam);
-      const temQtd = (v.RESFRIADO.KG||0)>0 || (v.CONGELADO.KG||0)>0 || (v.RESFRIADO[U]||0)>0 || (v.CONGELADO[U]||0)>0;
-      return temQtd || !!v.MOSTRAR_NO_RELATORIO;
-    }
-
     function snapshotNow(){
       const now = new Date();
       return {dateISO:now.toISOString(), dateLabel:dtLabel(now), snapshot:snapshot()};
     }
 
-    async function abrirPDF(blob){
+    async function baixarBlob(blob, filename){
       const url=URL.createObjectURL(blob);
-      window.open(url,'_blank');
+      const a=document.createElement('a');
+      a.href=url;
+      a.download=filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
       setTimeout(()=>URL.revokeObjectURL(url),60000);
     }
 
-    // ==== PDF padrão (com Contagem anterior) ====
+    // ==== PDF "Estoque do dia" → SOMENTE itens digitados hoje ====
+    function itemVisivelNoDia(fam, p){
+      return touchedToday(fam,p);
+    }
+
     async function gerarPDFBlob(){
       const { jsPDF } = window.jspdf;
       const last=loadJSON(LAST_REPORT_KEY,null);
@@ -521,7 +517,7 @@
       doc.text(new Date().toLocaleString('pt-BR'), W/2, y+24, {align:'center'});
       y+=44;
 
-      // Colunas: PRODUTO | CONTAGEM (ANTERIOR) | RESFRIADO | CONGELADO | SOMA
+      // Colunas
       const colW=160;
       const X_PROD = margin + colW*0.5;
       const X_PREV = W - margin - colW*3.5 + colW*0.5;
@@ -529,14 +525,18 @@
       const X_CONG = W - margin - colW*1.5 + colW*0.5;
       const X_SUM  = W - margin - colW*0.5;
 
+      let houveLinhas=false;
+
       for(let i=0;i<FAMILIAS.length;i++){
         const fam=FAMILIAS[i].nome;
         const pal=PALETAS[i%PALETAS.length]; const soft=hex2rgb(pal.soft); const strong=hex2rgb(pal.strong);
         const U = unitForFamily(fam);
 
         const base = [...new Set([...FAMILIAS[i].itens, ...Object.keys(store[fam]||{})])];
-        const itens = base.filter(p=>itemVisivelNoPDF(fam,p)).sort();
+        const itens = base.filter(p=>itemVisivelNoDia(fam,p)).sort();
         if(itens.length===0) continue;
+
+        houveLinhas=true;
 
         if(y>540){ doc.addPage(); y=margin; }
 
@@ -597,6 +597,11 @@
         y+=18;
       }
 
+      if(!houveLinhas){
+        doc.setFont('helvetica','italic'); doc.setFontSize(12);
+        doc.text('Nenhum item digitado hoje.', W/2, y+12, {align:'center'});
+      }
+
       return doc.output('blob');
     }
 
@@ -607,7 +612,7 @@
       return blob;
     }
 
-    // ==== PDF "Posição de estoque" (sem coluna de Contagem Anterior) ====
+    // ==== PDF "Posição de estoque" (valor correto) ====
     async function gerarPosicaoEstoquePDFBlob(){
       const { jsPDF } = window.jspdf;
 
@@ -641,7 +646,8 @@
         const U = unitForFamily(fam);
 
         const base = [...new Set([...FAMILIAS[i].itens, ...Object.keys(store[fam]||{})])];
-        const itens = base.filter(p=>itemVisivelNoPDF(fam,p)).sort();
+        // Posição de estoque → inclui apenas itens com quantidade > 0
+        const itens = base.filter(p=>hasQuantity(fam,p)).sort();
         if(itens.length===0) continue;
 
         if(y>540){ doc.addPage(); y=margin; }
@@ -664,15 +670,15 @@
 
         // Linhas
         doc.setFont('helvetica','normal'); doc.setFontSize(9);
-        let rk=0, ru=0, ck=0, cu=0, r$Fam=0; let row=0;
+        let rk=0, ru=0, ck=0, cu=0, valorFamilia=0; let row=0;
 
         for(const p of itens){
           const v=store[fam][p];
           const sumKg=round3((v.RESFRIADO.KG||0)+(v.CONGELADO.KG||0));
           const sumU =iint((v.RESFRIADO[U]||0)+(v.CONGELADO[U]||0));
-          const precoKg = getPriceKg(fam,p);
-          const valor = round3(sumKg * (precoKg||0));
-          r$Fam += valor;
+          const precoKg = +getPriceKg(fam,p);
+          const valor = (sumKg * (precoKg||0)); // cálculo sem arredondar antes
+          valorFamilia += valor;
 
           if(y>560){ doc.addPage(); y=margin; row=0; }
           if(row%2===1){ doc.setFillColor(240,240,240); doc.rect(margin,y-10,W-margin*2,16,'F'); }
@@ -698,7 +704,7 @@
         doc.text(`${fmt(rk)} / ${ru}`, X(1), y, {align:'center'});
         doc.text(`${fmt(ck)} / ${cu}`, X(2), y, {align:'center'});
         doc.text(`${fmt(round3(rk+ck))} / ${iint(ru+cu)}`, X(3), y, {align:'center'});
-        doc.text((r$Fam||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}), X(4), y, {align:'center'});
+        doc.text((valorFamilia||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}), X(4), y, {align:'center'});
 
         doc.setTextColor(0,0,0);
         doc.setFont('helvetica','normal'); doc.setFontSize(9);
@@ -708,7 +714,7 @@
       return doc.output('blob');
     }
 
-    // ==== XLS (HTML "xls" compatível) ====
+    // ==== XLS (apenas itens digitados hoje, como o PDF do dia) ====
     function gerarXLSBlob(){
       const last=loadJSON(LAST_REPORT_KEY,null);
       let html = `
@@ -718,16 +724,16 @@
           <td>FAMÍLIA</td>
           <td>PRODUTO</td>
           <td>${(last?.dateLabel||'ANTERIOR')}<br/>CONTAGEM</td>
-          <td>RESFRIADO<br/>(KG / U)</td>
-          <td>CONGELADO<br/>(KG / U)</td>
-          <td>SOMA<br/>(KG / U)</td>
+          <td>RESFRIADO<br/>(KG / UN)</td>
+          <td>CONGELADO<br/>(KG / UN)</td>
+          <td>SOMA<br/>(KG / UN)</td>
         </tr>`;
 
       for(const famObj of FAMILIAS){
         const fam = famObj.nome;
         const U = unitForFamily(fam);
         const base = [...new Set([...famObj.itens, ...Object.keys(store[fam]||{})])];
-        const itens = base.filter(p=>itemVisivelNoPDF(fam,p)).sort();
+        const itens = base.filter(p=>touchedToday(fam,p)).sort();
         if(itens.length===0) continue;
 
         for(const p of itens){
@@ -738,14 +744,14 @@
             <tr style="text-align:center">
               <td>${fam}</td>
               <td>${p}</td>
-              <td>${fmt(prev.SUM_KG)} / ${iint(prev.SUM_U)} ${U}</td>
-              <td>${fmt(v.RESFRIADO.KG||0)} / ${iint(v.RESFRIADO[U]||0)} ${U}</td>
-              <td>${fmt(v.CONGELADO.KG||0)} / ${iint(v.CONGELADO[U]||0)} ${U}</td>
-              <td>${fmt(sumKg)} / ${sumU} ${U}</td>
+              <td>${fmt(prev.SUM_KG)} / ${iint(prev.SUM_U)}</td>
+              <td>${fmt(v.RESFRIADO.KG||0)} / ${iint(v.RESFRIADO[U]||0)}</td>
+              <td>${fmt(v.CONGELADO.KG||0)} / ${iint(v.CONGELADO[U]||0)}</td>
+              <td>${fmt(sumKg)} / ${sumU}</td>
             </tr>`;
         }
 
-        // Totais por família
+        // Totais por família (apenas dos itens do dia)
         let rk=0,ru=0,ck=0,cu=0;
         for(const p of itens){
           const v=store[fam][p];
@@ -756,10 +762,10 @@
         html += `
           <tr style="font-weight:bold;text-align:center;background:#f6f6f6">
             <td colspan="2">TOTAL ${fam}</td>
-            <td>${fmt(prevFam.kg)} / ${iint(prevFam.un)} ${U}</td>
-            <td>${fmt(round3(rk))} / ${iint(ru)} ${U}</td>
-            <td>${fmt(round3(ck))} / ${iint(cu)} ${U}</td>
-            <td>${fmt(round3(rk+ck))} / ${iint(ru+cu)} ${U}</td>
+            <td>${fmt(prevFam.kg)} / ${iint(prevFam.un)}</td>
+            <td>${fmt(round3(rk))} / ${iint(ru)}</td>
+            <td>${fmt(round3(ck))} / ${iint(cu)}</td>
+            <td>${fmt(round3(rk+ck))} / ${iint(ru+cu)}</td>
           </tr>`;
       }
 
@@ -803,7 +809,7 @@
         const r = rows[i];
         const fam = String(r[idxFam]||'').toUpperCase().trim();
         const prod= String(r[idxProd]||'').toUpperCase().trim();
-        const preco = normalizeQty(String(r[idxPreco]));
+        const preco = parseFloat(String(r[idxPreco]).replace(',','.'));
         if(!fam || !prod || isNaN(preco)) continue;
         setPriceKg(fam, prod, preco);
         atualizados++;
@@ -814,22 +820,23 @@
     /* ===== Botões topo ===== */
     document.getElementById('btnExportar').onclick=async ()=>{
       const blob=await gerarERegistrar();
-      await abrirPDF(blob);
+      await baixarBlob(blob, `ESTOQUE ${dtFileFull(new Date())}.pdf`);
     };
 
     document.getElementById('btnCompartilhar').onclick=async ()=>{
       const blob=await gerarERegistrar();
-      await abrirPDF(blob);
-      const fname=`ESTOQUE ${dtFile(new Date())}.pdf`;
+      const fname=`ESTOQUE ${dtFileFull(new Date())}.pdf`;
       const file=new File([blob],fname,{type:'application/pdf'});
       if(navigator.canShare && navigator.canShare({files:[file]})){
         try{ await navigator.share({files:[file],title:'Estoque',text:'Relatório de estoque'});}catch(e){}
+      }else{
+        await baixarBlob(blob, fname);
       }
     };
 
     document.getElementById('btnXLS').onclick=()=>{
       const blob=gerarXLSBlob();
-      const fname=`ESTOQUE ${dtFile(new Date())}.xls`;
+      const fname=`ESTOQUE ${dtFileFull(new Date())}.xls`;
       const url=URL.createObjectURL(blob);
       const a=document.createElement('a'); a.href=url; a.download=fname; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(()=>URL.revokeObjectURL(url),60000);
@@ -837,9 +844,7 @@
 
     document.getElementById('btnPosicao').onclick=async ()=>{
       const blob=await gerarPosicaoEstoquePDFBlob();
-      const url=URL.createObjectURL(blob);
-      window.open(url,'_blank');
-      setTimeout(()=>URL.revokeObjectURL(url),60000);
+      await baixarBlob(blob, `POSIÇÃO ESTOQUE ${dtFileFull(new Date())}.pdf`);
     };
 
     // Upload / Modelo de preços
@@ -850,7 +855,7 @@
       if(querModelo){
         const blob=gerarModeloPrecosXLSBlob();
         const url=URL.createObjectURL(blob);
-        const a=document.createElement('a'); a.href=url; a.download=`MODELO_PRECOS_${dtFile(new Date())}.xlsx`; document.body.appendChild(a); a.click(); a.remove();
+        const a=document.createElement('a'); a.href=url; a.download=`MODELO_PRECOS_${dtFileFull(new Date())}.xlsx`; document.body.appendChild(a); a.click(); a.remove();
         setTimeout(()=>URL.revokeObjectURL(url),60000);
       }else{
         inputUpload.click();
@@ -880,21 +885,18 @@
 
       for(const fam of FAMILIAS){
         for(const p of Object.keys(store[fam.nome]||{})){
-          store[fam.nome][p]={ RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0}, MOSTRAR_NO_RELATORIO:false };
+          store[fam.nome][p]={ RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0}, TOUCHED_DATE:todayKey(), MOSTRAR_NO_RELATORIO:false };
         }
       }
+
+      // Mantemos o snapshot anterior para comparação quando itens forem recontados
       if(last?.snapshot){
-        for(const fam of Object.keys(last.snapshot)){
-          for(const p of Object.keys(last.snapshot[fam])){
-            ensureEntry(fam,p);
-            store[fam][p].MOSTRAR_NO_RELATORIO = true;
-          }
-        }
+        // nada a forçar para relatório do dia, pois ele filtra por TOUCHED_DATE
       }
 
       saveJSON(STORAGE_KEY,store);
       render();
-      alert('Estoque zerado. O relatório anterior continuará aparecendo na coluna "Contagem" para comparação.');
+      alert('Estoque zerado. O relatório anterior continuará disponível como referência na coluna "Contagem" quando você digitar novamente.');
     };
 
     /* ===== Forçar atualização (SW) ===== */
