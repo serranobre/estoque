@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>CONTROLE ESTOQUE V2.0</title>
+  <title>CONTROLE ESTOQUE V2.1.1</title>
 
   <!-- mesmos assets do app de pedidos -->
   <link rel="icon" type="image/png" href="favicon-96x96.png" sizes="96x96" />
@@ -50,7 +50,6 @@
     .chips{display:flex;gap:8px;flex-wrap:wrap}
     .chip-opt{border:1px solid var(--line);padding:8px 12px;border-radius:999px;background:#fff;cursor:pointer;user-select:none}
     .chip-opt.active{border-color:#111827;background:#111827;color:#fff}
-    .unit select{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:#fff}
     .qty input{width:100%;padding:10px;border:1px solid var(--line);border-radius:10px}
     .actions{display:flex;gap:6px}
     .feedback{grid-column:1/-1;font-size:12px;color:#0f172a;padding:6px 2px 10px;min-height:18px}
@@ -66,11 +65,20 @@
     .fam-7 .fam-head{background:var(--fam7-strong)} .fam-7 .fam-body .row:nth-child(even){background:var(--fam7-soft)}
     .fam-8 .fam-head{background:var(--fam8-strong)} .fam-8 .fam-body .row:nth-child(even){background:var(--fam8-soft)}
     .fam-9 .fam-head{background:var(--fam9-strong)} .fam-9 .fam-body .row:nth-child(even){background:var(--fam9-soft)}
+
+    /* busca */
+    .search{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;border-radius:12px;padding:8px 12px;min-width:220px}
+    .search input{border:none;outline:none;width:220px}
   </style>
 </head>
 <body>
   <header>
-    <h1>CONTROLE ESTOQUE V2.0</h1>
+    <h1>CONTROLE ESTOQUE V2.1.1</h1>
+
+    <div class="search">
+      🔎 <input id="busca" type="text" placeholder="Pesquisar produto..." />
+    </div>
+
     <div class="spacer"></div>
     <button class="btn" id="btnLimpar">Zerar</button>
     <button class="btn" id="btnExportar">Gerar PDF</button>
@@ -108,6 +116,7 @@
     window.__fbReady = ensureAuth();
 
     const invId = (family, product) => `${family}__${product}`.toUpperCase().replace(/\s+/g,' ').trim();
+
     async function fbAddQuantity({ family, product, tipo, unit, qty }){
       const id = invId(family, product);
       const ref = doc(db, "inventory", id);
@@ -128,6 +137,7 @@
       }
       await addDoc(collection(db,"history"),{family,product,tipo,unit,qty,action:"ADD",at:serverTimestamp(),source:"pwa-estoque"});
     }
+
     async function fbZeroAllInventory(){
       const snap = await getDocs(collection(db, "inventory"));
       const batch = writeBatch(db);
@@ -138,16 +148,18 @@
       await batch.commit();
       await addDoc(collection(db,"history"),{action:"ZERO_ALL",at:serverTimestamp(),source:"pwa-estoque"});
     }
+
     async function fbFetchAllInventory(){
       const snap = await getDocs(collection(db,"inventory"));
       return snap.docs.map(d=>({id:d.id,...d.data()}));
     }
-    window.__fb = { fbAddQuantity, fbZeroAllInventory, fbFetchAllInventory };
+
+    window.__fb = { fbAddQuantity, fbZeroAllInventory, fbFetchAllInventory, db };
   </script>
 
   <!-- App principal -->
   <script type="module">
-    const APP_VERSION = "2.0.0";
+    const APP_VERSION = "2.1.1";
     await window.__fbReady;
 
     /* ===== LOGO base64 ===== */
@@ -209,6 +221,46 @@
     const getPriceKg = (f,p)=> +((priceDB[priceId(f,p)]?.price_kg)||0);
     const setPriceKg = (f,p,val)=>{ priceDB[priceId(f,p)]={price_kg:+val||0,updated_at:new Date().toISOString()}; saveJSON(PRICE_DB_KEY,priceDB); };
 
+    /* ===== Sincronização Firestore → local ===== */
+    async function syncFromServer(){
+      try{
+        const docs = await window.__fb.fbFetchAllInventory();
+        for(const d of docs){
+          const fam = String(d.family||'').toUpperCase();
+          const prod= String(d.product||'').toUpperCase();
+          if(!fam || !prod) continue;
+          store[fam] ??= {};
+          store[fam][prod] ??= { RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0}, MOSTRAR_NO_RELATORIO:false };
+          // hidrata quantidades (aceita ausência de algum campo)
+          store[fam][prod].RESFRIADO.KG = round3(+d.resfriado_kg||0);
+          store[fam][prod].RESFRIADO.CX = iint(+d.resfriado_cx||0);
+          store[fam][prod].RESFRIADO.UN = iint(+d.resfriado_un||0);
+          store[fam][prod].CONGELADO.KG = round3(+d.congelado_kg||0);
+          store[fam][prod].CONGELADO.CX = iint(+d.congelado_cx||0);
+          store[fam][prod].CONGELADO.UN = iint(+d.congelado_un||0);
+          // se existir no servidor, marque para aparecer no relatório mesmo se 0
+          store[fam][prod].MOSTRAR_NO_RELATORIO ||= true;
+        }
+        saveJSON(STORAGE_KEY, store);
+      }catch(e){
+        console.warn('Falha ao sincronizar do Firestore:', e);
+      }
+    }
+
+    /* ===== Busca ===== */
+    let termoBusca = '';
+    $('#busca').addEventListener('input', (e)=>{ termoBusca = (e.target.value||'').trim().toUpperCase(); render(); });
+
+    /* ===== Normalização de número (pt-BR seguro) ===== */
+    const normalizeQty = (raw)=>{
+      if(raw==null) return NaN;
+      let s = String(raw).trim().replace(/\s+/g,'');
+      s = s.replace(/\./g,'').replace(',', '.'); // remove milhares, usa '.' decimal
+      const parts = s.split('.');
+      if(parts.length>2){ const dec = parts.pop(); s = parts.join('') + '.' + dec; }
+      return parseFloat(s);
+    };
+
     /* ===== Funções de dados ===== */
     function ensureEntry(familia,produto){
       store[familia] ??= {};
@@ -232,11 +284,25 @@
       });
     }
 
-    const buildUnitSelect=()=>{const s=document.createElement('select'); s.innerHTML='<option>KG</option><option>CX</option><option>UN</option>'; return s;};
+    // === Chips de unidade (KG/CX/UN)
+    const buildUnitChips = (initial='KG')=>{
+      const wrap=document.createElement('div'); wrap.className='chips';
+      const opts=['KG','CX','UN']; let cur=initial;
+      const btns = opts.map(v=>{
+        const b=document.createElement('div');
+        b.className='chip-opt'+(v===cur?' active':''); b.textContent=v;
+        b.onclick=()=>{ cur=v; btns.forEach(x=>x.classList.toggle('active', x===b)); };
+        return b;
+      });
+      btns.forEach(b=>wrap.appendChild(b));
+      return {el:wrap, get value(){return cur;}};
+    };
 
     /* ===== UI: linhas de produto ===== */
     function rowProduto(fam,prod){
       ensureEntry(fam,prod);
+      if(termoBusca && !String(prod).toUpperCase().includes(termoBusca)) return null;
+
       const wrap=document.createElement('div'); wrap.className='row';
       const name=document.createElement('div'); name.className='name'; name.textContent=prod;
 
@@ -247,8 +313,11 @@
       cR.onclick=()=>{tipo='RESFRIADO';cR.classList.add('active');cC.classList.remove('active')};
       cC.onclick=()=>{tipo='CONGELADO';cC.classList.add('active');cR.classList.remove('active')};
 
-      const unit=document.createElement('div'); unit.className='unit'; const sel=buildUnitSelect(); unit.appendChild(sel);
-      const qty=document.createElement('div'); qty.className='qty'; const inp=document.createElement('input'); inp.type='number'; inp.step='0.001'; inp.min='0'; inp.placeholder='Qtd'; qty.appendChild(inp);
+      const unit=document.createElement('div'); unit.className='unit';
+      const unitChips=buildUnitChips('KG'); unit.appendChild(unitChips.el);
+
+      const qty=document.createElement('div'); qty.className='qty';
+      const inp=document.createElement('input'); inp.type='number'; inp.step='0.001'; inp.min='0'; inp.placeholder='Qtd'; inp.inputMode='decimal'; qty.appendChild(inp);
 
       const add=document.createElement('button'); add.className='btn'; add.textContent='Adicionar';
       const actions=document.createElement('div'); actions.className='actions';
@@ -259,11 +328,11 @@
       const fb=document.createElement('div'); fb.className='feedback';
 
       add.onclick=async ()=>{
-        const valStr=(inp.value||'').replace(',','.');
-        if(valStr===''){ alert('Informe um número.'); return; }
-        let v = parseFloat(valStr);
+        const valStr=(inp.value||'');
+        if(String(valStr).trim()===''){ alert('Informe um número.'); return; }
+        let v = normalizeQty(valStr);
         if(isNaN(v) || v<0){ alert('Valor inválido.'); return; }
-        const U = sel.value;
+        const U = unitChips.value;
         const tgt = store[fam][prod][tipo];
         if(U==='KG') tgt[U]=round3((tgt[U]||0)+v); else tgt[U]=iint((tgt[U]||0)+v);
         if(v===0){ store[fam][prod].MOSTRAR_NO_RELATORIO=true; }
@@ -312,24 +381,24 @@
       chips.append(cR,cC); let tipo='RESFRIADO';
       cR.onclick=()=>{tipo='RESFRIADO';cR.classList.add('active');cC.classList.remove('active')}
       cC.onclick=()=>{tipo='CONGELADO';cC.classList.add('active');cR.classList.remove('active')}
-      const unit=document.createElement('div'); unit.className='unit'; const sel=buildUnitSelect(); unit.appendChild(sel);
-      const inp=document.createElement('input'); inp.type='number'; inp.step='0.001'; inp.min='0'; inp.placeholder='Qtd';
+      const unit=document.createElement('div'); unit.className='unit'; const unitChips=buildUnitChips('KG'); unit.appendChild(unitChips.el);
+      const inp=document.createElement('input'); inp.type='number'; inp.step='0.001'; inp.min='0'; inp.placeholder='Qtd'; inp.inputMode='decimal';
       const add=document.createElement('button'); add.className='btn'; add.textContent='Adicionar';
       const fb=document.createElement('div'); fb.className='feedback';
 
       add.onclick=async ()=>{
         const prod=(name.value||'').trim().toUpperCase();
-        const valStr=(inp.value||'').replace(',','.');
+        const valStr=(inp.value||'');
         if(!prod){ alert('Digite o nome do produto.'); return; }
-        if(valStr===''){ alert('Informe um número.'); return; }
-        let v=parseFloat(valStr); if(isNaN(v)||v<0){ alert('Valor inválido.'); return; }
-        const U=sel.value;
+        if(String(valStr).trim()===''){ alert('Informe um número.'); return; }
+        let v=normalizeQty(valStr); if(isNaN(v)||v<0){ alert('Valor inválido.'); return; }
+        const U=unitChips.value;
         ensureEntry(fam,prod);
         const tgt=store[fam][prod][tipo];
         if(U==='KG') tgt[U]=round3((tgt[U]||0)+v); else tgt[U]=iint((tgt[U]||0)+v);
         if(v===0){ store[fam][prod].MOSTRAR_NO_RELATORIO=true; }
         saveJSON(STORAGE_KEY,store);
-        wrap.parentElement.insertBefore(rowProduto(fam,prod),wrap);
+        const row=rowProduto(fam,prod); if(row) wrap.parentElement.insertBefore(row,wrap);
         renderHeaderMeta(fam);
         fb.textContent=`${prod} adicionado.`;
         name.value=''; inp.value='';
@@ -358,15 +427,22 @@
         const body=document.createElement('div'); body.className='fam-body';
         const itensFamilia=Object.keys(store[fam.nome]||{});
         const ordenados=[...new Set([...fam.itens,...itensFamilia])];
-        ordenados.forEach(p=>body.appendChild(rowProduto(fam.nome,p)));
+        ordenados.forEach(p=>{
+          const row=rowProduto(fam.nome,p);
+          if(row) body.appendChild(row);
+        });
         body.appendChild(document.createElement('div')).className='divider';
         body.appendChild(rowNovoProduto(fam.nome));
 
         head.append(title,unitSel,meta); card.append(head,body); app.appendChild(card);
       });
     }
+
+    // primeiro sincroniza do servidor e depois renderiza
+    await syncFromServer();
     render();
-        /* ===== PDF / XLS / PREÇOS ===== */
+
+    /* ===== PDF / XLS / PREÇOS ===== */
 
     const PALETAS=[
       {soft:'#eef2ff',strong:'#6366f1'},{soft:'#ecfeff',strong:'#06b6d4'},
@@ -421,7 +497,7 @@
       setTimeout(()=>URL.revokeObjectURL(url),60000);
     }
 
-    // ==== PDF padrão (com Contagem anterior na 1ª coluna de dados) ====
+    // ==== PDF padrão (com Contagem anterior) ====
     async function gerarPDFBlob(){
       const { jsPDF } = window.jspdf;
       const last=loadJSON(LAST_REPORT_KEY,null);
@@ -447,8 +523,8 @@
 
       // Colunas: PRODUTO | CONTAGEM (ANTERIOR) | RESFRIADO | CONGELADO | SOMA
       const colW=160;
-      const X_PROD = margin + colW*0.5;                 // centro coluna Produto
-      const X_PREV = W - margin - colW*3.5 + colW*0.5;  // 1ª coluna de dados
+      const X_PROD = margin + colW*0.5;
+      const X_PREV = W - margin - colW*3.5 + colW*0.5;
       const X_RESF = W - margin - colW*2.5 + colW*0.5;
       const X_CONG = W - margin - colW*1.5 + colW*0.5;
       const X_SUM  = W - margin - colW*0.5;
@@ -464,13 +540,13 @@
 
         if(y>540){ doc.addPage(); y=margin; }
 
-        // Cabeçalho da família (cor igual para TÍTULO e TOTAL)
+        // Cabeçalho família
         doc.setFillColor(soft.r,soft.g,soft.b); doc.rect(margin,y,W-margin*2,24,'F');
         doc.setTextColor(strong.r,strong.g,strong.b); doc.setFont('helvetica','bold'); doc.setFontSize(18);
         doc.text(fam, W/2, y+16, {align:'center'}); doc.setTextColor(0,0,0);
         y+=40;
 
-        // Cabeçalhos (2 linhas e centralizados)
+        // Cabeçalhos
         doc.setFont('helvetica','bold'); doc.setFontSize(10);
         wrap2(doc, 'PRODUTO', X_PROD, y, colW-20);
         wrap2(doc, `${(last?.dateLabel||'ANTERIOR')}\nCONTAGEM`, X_PREV, y, colW-20);
@@ -490,7 +566,6 @@
           const sumU =iint((v.RESFRIADO[U]||0)+(v.CONGELADO[U]||0));
 
           if(y>560){ doc.addPage(); y=margin; row=0; }
-
           if(row%2===1){ doc.setFillColor(240,240,240); doc.rect(margin,y-10,W-margin*2,16,'F'); }
 
           doc.text(p, X_PROD, y, {align:'center'});
@@ -504,7 +579,7 @@
           ck+=v.CONGELADO.KG||0; cu+=iint(v.CONGELADO[U]||0);
         }
 
-        // Totais (faixa com mesma cor da família)
+        // Totais
         y+=2;
         doc.setFillColor(soft.r,soft.g,soft.b); doc.rect(margin,y-10,W-margin*2,18,'F');
         doc.setFont('helvetica','bold'); doc.setFontSize(10);
@@ -532,10 +607,9 @@
       return blob;
     }
 
-    // ==== PDF "Posição de estoque" (acrescenta coluna R$) ====
+    // ==== PDF "Posição de estoque" (sem coluna de Contagem Anterior) ====
     async function gerarPosicaoEstoquePDFBlob(){
       const { jsPDF } = window.jspdf;
-      const last=loadJSON(LAST_REPORT_KEY,null);
 
       const doc=new jsPDF({unit:'pt', format:'a4', orientation:'landscape'});
       const W=doc.internal.pageSize.getWidth();
@@ -556,16 +630,10 @@
       doc.text(new Date().toLocaleString('pt-BR'), W/2, y+24, {align:'center'});
       y+=44;
 
-      // Colunas: PRODUTO | CONTAGEM (ANT.) | RESFRIADO | CONGELADO | SOMA | VALOR R$
-      const colW=140; // 6 colunas
-      const X_PROD = margin + colW*0.5;
-      const X_PREV = W - margin - colW*5.5 + colW*0.5;
-      const X_RESF = W - margin - colW*4.5 + colW*0.5;
-      const X_CONG = W - margin - colW*3.5 + colW*0.5;
-      const X_SUM  = W - margin - colW*2.5 + colW*0.5;
-      const X_R$   = W - margin - colW*1.5 + colW*0.5;
-
-      let totalGeral = 0;
+      // 5 colunas: PRODUTO | RESFRIADO | CONGELADO | SOMA | VALOR R$
+      const cols = 5;
+      const colW = (W - margin*2) / cols;
+      const X = (i)=> margin + colW*(i+0.5);
 
       for(let i=0;i<FAMILIAS.length;i++){
         const fam=FAMILIAS[i].nome;
@@ -586,12 +654,11 @@
 
         // Cabeçalhos
         doc.setFont('helvetica','bold'); doc.setFontSize(10);
-        wrap2(doc, 'PRODUTO', X_PROD, y, colW-20);
-        wrap2(doc, `${(last?.dateLabel||'ANTERIOR')}\nCONTAGEM`, X_PREV, y, colW-20);
-        wrap2(doc, `RESFRIADO\n(KG / ${U})`, X_RESF, y, colW-20);
-        wrap2(doc, `CONGELADO\n(KG / ${U})`, X_CONG, y, colW-20);
-        wrap2(doc, `SOMA\n(KG / ${U})`, X_SUM, y, colW-20);
-        wrap2(doc, `VALOR\n(R$)`, X_R$, y, colW-20);
+        wrap2(doc, 'PRODUTO', X(0), y, colW-20);
+        wrap2(doc, `RESFRIADO\n(KG / ${U})`, X(1), y, colW-20);
+        wrap2(doc, `CONGELADO\n(KG / ${U})`, X(2), y, colW-20);
+        wrap2(doc, `SOMA\n(KG / ${U})`, X(3), y, colW-20);
+        wrap2(doc, `VALOR\n(R$)`, X(4), y, colW-20);
 
         y+=12; doc.line(margin,y,W-margin,y); y+=10;
 
@@ -600,52 +667,43 @@
         let rk=0, ru=0, ck=0, cu=0, r$Fam=0; let row=0;
 
         for(const p of itens){
-          const v=store[fam][p], prev=last?.snapshot?.[fam]?.[p]||{SUM_KG:0,SUM_U:0};
+          const v=store[fam][p];
           const sumKg=round3((v.RESFRIADO.KG||0)+(v.CONGELADO.KG||0));
           const sumU =iint((v.RESFRIADO[U]||0)+(v.CONGELADO[U]||0));
           const precoKg = getPriceKg(fam,p);
           const valor = round3(sumKg * (precoKg||0));
-          r$Fam += valor; totalGeral += valor;
+          r$Fam += valor;
 
           if(y>560){ doc.addPage(); y=margin; row=0; }
-
           if(row%2===1){ doc.setFillColor(240,240,240); doc.rect(margin,y-10,W-margin*2,16,'F'); }
 
-          doc.text(p, X_PROD, y, {align:'center'});
-          doc.text(`${fmt(prev.SUM_KG)} / ${iint(prev.SUM_U)}`, X_PREV, y, {align:'center'});
-          doc.text(`${fmt(v.RESFRIADO.KG||0)} / ${iint(v.RESFRIADO[U]||0)}`, X_RESF, y, {align:'center'});
-          doc.text(`${fmt(v.CONGELADO.KG||0)} / ${iint(v.CONGELADO[U]||0)}`, X_CONG, y, {align:'center'});
-          doc.text(`${fmt(sumKg)} / ${sumU}`, X_SUM, y, {align:'center'});
-          doc.text((valor||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}), X_R$, y, {align:'center'});
+          doc.text(p, X(0), y, {align:'center'});
+          doc.text(`${fmt(v.RESFRIADO.KG||0)} / ${iint(v.RESFRIADO[U]||0)}`, X(1), y, {align:'center'});
+          doc.text(`${fmt(v.CONGELADO.KG||0)} / ${iint(v.CONGELADO[U]||0)}`, X(2), y, {align:'center'});
+          doc.text(`${fmt(sumKg)} / ${sumU}`, X(3), y, {align:'center'});
+          doc.text((valor||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}), X(4), y, {align:'center'});
 
           y+=16; row++;
           rk+=v.RESFRIADO.KG||0; ru+=iint(v.RESFRIADO[U]||0);
           ck+=v.CONGELADO.KG||0; cu+=iint(v.CONGELADO[U]||0);
         }
 
-        // Totais (faixa colorida)
+        // Totais
         y+=2;
         doc.setFillColor(soft.r,soft.g,soft.b); doc.rect(margin,y-10,W-margin*2,18,'F');
         doc.setFont('helvetica','bold'); doc.setFontSize(10);
         doc.setTextColor(strong.r,strong.g,strong.b);
 
-        const prevFam=itens.reduce((acc,p)=>{const k=last?.snapshot?.[fam]?.[p]?.SUM_KG||0; const u=last?.snapshot?.[fam]?.[p]?.SUM_U||0; return {kg:round3(acc.kg+k), un:acc.un+iint(u)};},{kg:0,un:0});
-        doc.text('TOTAL', X_PROD, y, {align:'center'});
-        doc.text(`${fmt(prevFam.kg)} / ${iint(prevFam.un)}`, X_PREV, y, {align:'center'});
-        doc.text(`${fmt(rk)} / ${ru}`, X_RESF, y, {align:'center'});
-        doc.text(`${fmt(ck)} / ${cu}`, X_CONG, y, {align:'center'});
-        doc.text(`${fmt(round3(rk+ck))} / ${iint(ru+cu)}`, X_SUM, y, {align:'center'});
-        doc.text((r$Fam||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}), X_R$, y, {align:'center'});
+        doc.text('TOTAL', X(0), y, {align:'center'});
+        doc.text(`${fmt(rk)} / ${ru}`, X(1), y, {align:'center'});
+        doc.text(`${fmt(ck)} / ${cu}`, X(2), y, {align:'center'});
+        doc.text(`${fmt(round3(rk+ck))} / ${iint(ru+cu)}`, X(3), y, {align:'center'});
+        doc.text((r$Fam||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}), X(4), y, {align:'center'});
 
         doc.setTextColor(0,0,0);
         doc.setFont('helvetica','normal'); doc.setFontSize(9);
         y+=18;
       }
-
-      // Rodapé total geral
-      if(y>540){ doc.addPage(); y=margin; }
-      doc.setFont('helvetica','bold'); doc.setFontSize(12);
-      doc.text(`VALOR TOTAL DO ESTOQUE: ${totalGeral.toLocaleString('pt-BR',{style:'currency',currency:'BRL'})}`, W/2, y+8, {align:'center'});
 
       return doc.output('blob');
     }
@@ -660,9 +718,9 @@
           <td>FAMÍLIA</td>
           <td>PRODUTO</td>
           <td>${(last?.dateLabel||'ANTERIOR')}<br/>CONTAGEM</td>
-          <td>RESFRIADO<br/>(KG / UN)</td>
-          <td>CONGELADO<br/>(KG / UN)</td>
-          <td>SOMA<br/>(KG / UN)</td>
+          <td>RESFRIADO<br/>(KG / U)</td>
+          <td>CONGELADO<br/>(KG / U)</td>
+          <td>SOMA<br/>(KG / U)</td>
         </tr>`;
 
       for(const famObj of FAMILIAS){
@@ -680,10 +738,10 @@
             <tr style="text-align:center">
               <td>${fam}</td>
               <td>${p}</td>
-              <td>${fmt(prev.SUM_KG)} / ${iint(prev.SUM_U)}</td>
-              <td>${fmt(v.RESFRIADO.KG||0)} / ${iint(v.RESFRIADO[U]||0)}</td>
-              <td>${fmt(v.CONGELADO.KG||0)} / ${iint(v.CONGELADO[U]||0)}</td>
-              <td>${fmt(sumKg)} / ${sumU}</td>
+              <td>${fmt(prev.SUM_KG)} / ${iint(prev.SUM_U)} ${U}</td>
+              <td>${fmt(v.RESFRIADO.KG||0)} / ${iint(v.RESFRIADO[U]||0)} ${U}</td>
+              <td>${fmt(v.CONGELADO.KG||0)} / ${iint(v.CONGELADO[U]||0)} ${U}</td>
+              <td>${fmt(sumKg)} / ${sumU} ${U}</td>
             </tr>`;
         }
 
@@ -698,10 +756,10 @@
         html += `
           <tr style="font-weight:bold;text-align:center;background:#f6f6f6">
             <td colspan="2">TOTAL ${fam}</td>
-            <td>${fmt(prevFam.kg)} / ${iint(prevFam.un)}</td>
-            <td>${fmt(round3(rk))} / ${iint(ru)}</td>
-            <td>${fmt(round3(ck))} / ${iint(cu)}</td>
-            <td>${fmt(round3(rk+ck))} / ${iint(ru+cu)}</td>
+            <td>${fmt(prevFam.kg)} / ${iint(prevFam.un)} ${U}</td>
+            <td>${fmt(round3(rk))} / ${iint(ru)} ${U}</td>
+            <td>${fmt(round3(ck))} / ${iint(cu)} ${U}</td>
+            <td>${fmt(round3(rk+ck))} / ${iint(ru+cu)} ${U}</td>
           </tr>`;
       }
 
@@ -711,7 +769,6 @@
 
     // ==== Modelo XLSX de preços + leitura/atualização ====
     function gerarModeloPrecosXLSBlob(){
-      // Monta um XLSX real com cabeçalhos: FAMILIA | PRODUTO | PRECO_KG
       const wb = XLSX.utils.book_new();
       const linhas = [["FAMILIA","PRODUTO","PRECO_KG"]];
       for(const f of FAMILIAS){
@@ -722,7 +779,6 @@
         }
       }
       const ws = XLSX.utils.aoa_to_sheet(linhas);
-      // formata a coluna de preço como número
       ws['!cols'] = [{wch:25},{wch:35},{wch:12}];
       XLSX.utils.book_append_sheet(wb, ws, 'PRECOS');
       const wbout = XLSX.write(wb, {bookType:'xlsx', type:'array'});
@@ -734,7 +790,6 @@
       const wb = XLSX.read(data, {type:'array'});
       const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
-      // Espera cabeçalho: FAMILIA | PRODUTO | PRECO_KG
       const header = rows[0].map(h=>String(h).trim().toUpperCase());
       const idxFam = header.indexOf('FAMILIA');
       const idxProd= header.indexOf('PRODUTO');
@@ -748,7 +803,7 @@
         const r = rows[i];
         const fam = String(r[idxFam]||'').toUpperCase().trim();
         const prod= String(r[idxProd]||'').toUpperCase().trim();
-        const preco = parseFloat(String(r[idxPreco]).replace(',','.'));
+        const preco = normalizeQty(String(r[idxPreco]));
         if(!fam || !prod || isNaN(preco)) continue;
         setPriceKg(fam, prod, preco);
         atualizados++;
@@ -815,16 +870,14 @@
       }
     };
 
-    // Zerar total (local + servidor) — preserva último relatório p/ comparação
+    // Zerar total (local + servidor)
     document.getElementById('btnLimpar').onclick=async ()=>{
       if(!confirm('Zerar todo o estoque (dispositivo + servidor)?')) return;
 
-      // Puxa o último snapshot ANTES de zerar
       const last = loadJSON(LAST_REPORT_KEY,null);
 
       try{ await window.__fb.fbZeroAllInventory(); }catch(e){ console.warn('Falha ao zerar Firestore:',e); }
 
-      // Zera local e mantém visibilidade p/ itens do último relatório
       for(const fam of FAMILIAS){
         for(const p of Object.keys(store[fam.nome]||{})){
           store[fam.nome][p]={ RESFRIADO:{KG:0,CX:0,UN:0}, CONGELADO:{KG:0,CX:0,UN:0}, MOSTRAR_NO_RELATORIO:false };
@@ -861,4 +914,3 @@
   </script>
 </body>
 </html>
-    
