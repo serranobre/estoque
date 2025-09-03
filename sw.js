@@ -4,7 +4,7 @@
 // - CDNs: stale-while-revalidate
 // - Força atualização via {type:'SKIP_WAITING'}
 
-const APP_VERSION = '2.1.1';
+const APP_VERSION = '2.1.2';
 const STATIC_CACHE  = `estoque-static-${APP_VERSION}`;
 const DYNAMIC_CACHE = `estoque-dyn-${APP_VERSION}`;
 const OFFLINE_URL   = './index.html';
